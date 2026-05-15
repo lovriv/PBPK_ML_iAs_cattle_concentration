@@ -74,7 +74,7 @@ N_RUNS=5000 Rscript scripts/PBPK_MRL_cattle_Adult.R
 
 | Part | Steps | Outputs |
 |------|-------|---------|
-| **A. PBPK** | Deterministic ODE + mass balance + 1000-run Monte Carlo | `A_*` CSVs and figures in `output/` |
+| **A. PBPK** | Deterministic ODE + mass balance + 10000-run Monte Carlo | `A_*` CSVs and figures in `output/` |
 | **B. TF bridge** | Compute TF mean + 95% CI from PBPK population | `B_TF_summary.csv` |
 | **C. MRL** | 10000-trial Monte Carlo cancer risk model | `C_*` CSVs and figures |
 
