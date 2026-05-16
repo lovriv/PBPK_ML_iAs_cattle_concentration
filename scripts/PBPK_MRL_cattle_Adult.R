@@ -476,8 +476,12 @@ pop_dist <- list(
   FV_rest   = c(mean = 0.5012,    sd = 0.05012,    lo = 0.1112,    hi = 0.8912)
 )
 
-n_runs_pbpk <- as.integer(Sys.getenv("N_RUNS", unset = "10000"))
-cat("    n_runs =", n_runs_pbpk, "\n")
+# CANONICAL run size - LOCKED for manuscript reproducibility.
+# All reported numbers and figures derive from this exact configuration:
+#   PBPK population = 10000 | PBPK seed = 4729
+#   MRL Monte Carlo = 10000 | MRL  seed = 123  (see config below)
+n_runs_pbpk <- 10000L
+cat("    n_runs =", n_runs_pbpk, "(locked canonical)\n")
 
 set.seed(4729)
 parm_samples <- do.call(cbind, lapply(pop_dist, function(d) {
@@ -579,12 +583,22 @@ p_det <- ggplot(det_long, aes(x = Day, y = Conc, colour = Species)) +
 ggsave(out_path("A1_pbpk_deterministic_species.png"),
        p_det, width = 10, height = 5, dpi = 300)
 
-# Mass balance plot
-p_bal <- ggplot(out_df, aes(Day, BAL)) +
+# Mass balance plot - fractional error (% of cumulative absorbed iAs)
+# Plotting the relative error (rather than absolute umol) shows directly that
+# the error stays far below the 1% regulatory criterion. t = 0 is dropped to
+# avoid 0/0 (nothing absorbed yet).
+out_df$BAL_pct <- ifelse(out_df$AAO_total > 0,
+                         out_df$BAL / out_df$AAO_total * 100, NA_real_)
+max_bal_pct <- max(abs(out_df$BAL_pct), na.rm = TRUE)
+
+p_bal <- ggplot(subset(out_df, !is.na(BAL_pct)), aes(Day, BAL_pct)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
   geom_line(colour = "firebrick", linewidth = 0.8) +
-  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey") +
-  labs(title = "Mass balance (BAL = AAO - body - excretion)",
-       x = "Time (days)", y = expression(BAL~(mu*mol))) +
+  labs(title    = "PBPK mass-balance fractional error",
+       subtitle = sprintf("max |error| = %.2e %%   (regulatory criterion: < 1%%)",
+                           max_bal_pct),
+       x = "Time (days)",
+       y = "Mass-balance error (% of cumulative absorbed iAs)") +
   theme_bw(base_size = 11)
 ggsave(out_path("A2_pbpk_mass_balance.png"),
        p_bal, width = 8, height = 4, dpi = 300)
@@ -1141,14 +1155,19 @@ plot_data <- rbind(
 pC1 <- ggplot(plot_data, aes(x = MRL_unified, fill = Population)) +
   geom_histogram(alpha = 0.7, bins = 50, position = "identity",
                  color = "black", linewidth = 0.2) +
-  scale_x_log10(labels = scales::comma_format()) +
+  # extra right-side expansion + plot margin so the last (largest) axis
+  # label is not clipped at the image edge
+  scale_x_log10(labels = scales::comma_format(),
+                expand = expansion(mult = c(0.03, 0.12))) +
   geom_vline(xintercept = final_MRL, color = "red",
              linetype = "dashed", linewidth = 0.8) +
   annotate("text", x = final_MRL * 1.2, y = Inf,
            label = paste("Proposed MRL:", round(final_MRL, 2), "ug/kg"),
            vjust = 1.5, hjust = 0, color = "red", size = 4, fontface = "bold") +
   labs(x = "Unified MRL (ug/kg, log-scale)", y = "Frequency", fill = NULL) +
-  theme_classic(base_size = 12) + theme(legend.position = "bottom")
+  theme_classic(base_size = 12) +
+  theme(legend.position = "bottom",
+        plot.margin = margin(t = 10, r = 28, b = 10, l = 10, unit = "pt"))
 ggsave(out_path("C1_MRL_distribution.png"),
        pC1, width = 8, height = 6, dpi = 300, bg = "white")
 
