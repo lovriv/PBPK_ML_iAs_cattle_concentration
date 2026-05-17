@@ -31,6 +31,7 @@ suppressPackageStartupMessages({
   library(tidyverse)
   library(parallel)
   library(gridExtra)
+  library(grid)
   # MRL
   library(readxl)
   library(MASS)
@@ -1423,7 +1424,234 @@ table4 <- data.frame(
 write.csv(table4, out_path("C_Table4_MRL_by_endpoint.csv"), row.names = FALSE)
 
 
-## C14. Final console summary --------------------------------------------------
+## C14. Graphical abstract ----------------------------------------------------
+# Five-panel summary banner: Feed -> Population PBPK -> Transfer Factors ->
+# Monte Carlo -> Proposed MRL. All numbers are pulled live from the pipeline
+# (n_runs_pbpk, TF_cattle, config$n_sim, final_MRL) so the figure always
+# matches the canonical run.
+
+cat("C9. Building graphical abstract...\n")
+
+# --- palette ---
+ga_bg <- "#F7F9FC"; ga_feed_c <- "#E8F0FE"; ga_pbpk_c <- "#D4E8D1"
+ga_tf_c <- "#FFF3E0"; ga_mc_c <- "#F3E5F5"; ga_mrl_c <- "#FFEBEE"
+ga_accent <- "#1565C0"; ga_green <- "#2E7D32"; ga_orange <- "#E65100"
+ga_purple <- "#6A1B9A"; ga_red <- "#C62828"; ga_border <- "#546E7A"
+ga_text <- "#212121"; ga_sub <- "#666666"
+
+# --- helpers ---
+ga_canvas <- function(bg = "white") {
+  ggplot() +
+    coord_cartesian(xlim = c(0, 10), ylim = c(0, 10), expand = FALSE) +
+    theme_void() +
+    theme(plot.background  = element_rect(fill = bg, color = NA),
+          panel.background = element_rect(fill = bg, color = NA),
+          plot.margin = margin(0, 0, 0, 0))
+}
+ga_ellipse <- function(cx, cy, a, b, n = 100) {
+  theta <- seq(0, 2 * pi, length.out = n)
+  data.frame(x = cx + a * cos(theta), y = cy + b * sin(theta))
+}
+ga_arrow <- function() {
+  ga_canvas(ga_bg) +
+    annotate("segment", x = 2, xend = 8, y = 5, yend = 5,
+             arrow = arrow(length = unit(0.15, "inches"), type = "closed"),
+             color = ga_border, linewidth = 1.2)
+}
+
+# --- live numbers ---
+ga_n_pbpk    <- format(n_runs_pbpk, big.mark = ",")
+ga_n_mc      <- format(config$n_sim, big.mark = ",")
+ga_feed_rate <- unname(parms["feed_intake_kg"])
+ga_mrl       <- round(final_MRL, 1)
+ga_fold_eu   <- round(2000  / ga_mrl)
+ga_fold_nrc  <- round(30000 / ga_mrl)
+
+# --- Panel 1: Feed input ---
+p_feed <- ga_canvas(ga_feed_c) +
+  annotate("rect", xmin = 0.2, xmax = 9.8, ymin = 0.2, ymax = 9.8,
+           fill = NA, color = ga_border, linewidth = 0.6) +
+  annotate("text", x = 5, y = 9.0, label = "FEED INPUT",
+           size = 3.2, fontface = "bold", color = ga_accent) +
+  annotate("rect", xmin = 2.8, xmax = 7.2, ymin = 3.0, ymax = 6.3,
+           fill = "#8D6E63", color = "#6D4C41", linewidth = 0.5) +
+  annotate("polygon", x = c(3.1, 6.9, 6.5, 3.5), y = c(6.3, 6.3, 7.0, 7.0),
+           fill = "#A1887F", color = "#6D4C41", linewidth = 0.5) +
+  annotate("text", x = 5, y = 5.3, label = "iAs", size = 4.5,
+           fontface = "bold", color = "white") +
+  annotate("text", x = 5, y = 4.0, label = "FEED", size = 2.8,
+           fontface = "bold", color = "#D7CCC8") +
+  annotate("text", x = 5, y = 1.5,
+           label = sprintf("Feeding rate = %.2f kg DM/day", ga_feed_rate),
+           size = 2.4, color = ga_sub)
+
+# --- Panel 2: Population PBPK ---
+ga_body   <- ga_ellipse(5.0, 5.8, 3.4, 2.0)
+ga_head   <- ga_ellipse(8.5, 6.8, 1.1, 0.9)
+ga_liver  <- ga_ellipse(4.2, 6.2, 1.0, 0.60)
+ga_kidney <- ga_ellipse(5.5, 5.8, 0.8, 0.50)
+ga_offal  <- ga_ellipse(6.7, 5.2, 0.8, 0.55)
+ga_muscle <- ga_ellipse(3.3, 4.8, 0.9, 0.5)
+
+p_pbpk <- ga_canvas(ga_pbpk_c) +
+  annotate("rect", xmin = 0.1, xmax = 9.9, ymin = 0.1, ymax = 9.9,
+           fill = NA, color = ga_border, linewidth = 0.6) +
+  annotate("text", x = 5, y = 9.2, label = "POPULATION PBPK",
+           size = 3.2, fontface = "bold", color = ga_green) +
+  annotate("text", x = 5, y = 8.5,
+           label = sprintf("n = %s virtual cattle", ga_n_pbpk),
+           size = 2.5, color = ga_sub) +
+  geom_polygon(data = ga_body,   aes(x, y), fill = "#E0E0E0", color = "#888888", linewidth = 0.5) +
+  geom_polygon(data = ga_head,   aes(x, y), fill = "#EEEEEE", color = "#888888", linewidth = 0.5) +
+  annotate("segment", x = c(2.8, 3.8, 6.2, 7.2), xend = c(2.8, 3.8, 6.2, 7.2),
+           y = rep(3.8, 4), yend = rep(2.8, 4), color = "#888888", linewidth = 0.8) +
+  geom_polygon(data = ga_liver,  aes(x, y), fill = "#A5D6A7", color = "#2E7D32", linewidth = 0.5) +
+  geom_polygon(data = ga_kidney, aes(x, y), fill = "#FFCC80", color = "#E65100", linewidth = 0.5) +
+  geom_polygon(data = ga_offal,  aes(x, y), fill = "#BCAAA4", color = "#5D4037", linewidth = 0.5) +
+  geom_polygon(data = ga_muscle, aes(x, y), fill = "#EF9A9A", color = "#C62828", linewidth = 0.5) +
+  annotate("text", x = 4.2, y = 6.2, label = "Liver",  size = 1.8, fontface = "bold", color = "#1B5E20") +
+  annotate("text", x = 5.5, y = 5.8, label = "Kidney", size = 1.6, fontface = "bold", color = "#BF360C") +
+  annotate("text", x = 6.7, y = 5.2, label = "Other\noffal", size = 1.5, fontface = "bold",
+           color = "#3E2723", lineheight = 0.8) +
+  annotate("text", x = 3.3, y = 4.8, label = "Muscle", size = 1.6, fontface = "bold", color = "#B71C1C") +
+  annotate("text", x = 5, y = 2.2,
+           label = expression(paste("Allometric scaling (BW"^"0.75", ")")),
+           size = 2.5, color = ga_text) +
+  annotate("text", x = 5, y = 1.5, label = "Michaelis-Menten methylation",
+           size = 2.5, color = ga_text) +
+  annotate("text", x = 5, y = 0.8, label = "Steady state: ~200 hours",
+           size = 2.5, color = ga_text)
+
+# --- Panel 3: Transfer factors (live TF_cattle values) ---
+ga_tf <- data.frame(
+  tissue = factor(c("Muscle", "Other\noffal", "Kidney", "Liver"),
+                  levels = c("Muscle", "Other\noffal", "Kidney", "Liver")),
+  TF = c(TF_cattle$meat$mean, TF_cattle$others$mean,
+         TF_cattle$kidney$mean, TF_cattle$liver$mean)
+)
+ga_tf_max <- max(ga_tf$TF)
+
+p_tf <- ggplot(ga_tf, aes(x = tissue, y = TF)) +
+  geom_col(aes(fill = tissue, color = tissue), width = 0.7, linewidth = 0.6) +
+  geom_text(aes(label = sprintf("%.4f", TF), color = tissue),
+            angle = 90, hjust = -0.2, vjust = 0.5, size = 2.2,
+            fontface = "bold", show.legend = FALSE) +
+  scale_fill_manual(values = c("Muscle" = "#EF9A9A", "Other\noffal" = "#BCAAA4",
+                               "Kidney" = "#FFCC80", "Liver" = "#A5D6A7")) +
+  scale_color_manual(values = c("Muscle" = "#C62828", "Other\noffal" = "#5D4037",
+                                "Kidney" = "#E65100", "Liver" = "#2E7D32")) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.45)), limits = c(0, NA)) +
+  labs(title = "TRANSFER FACTORS",
+       subtitle = expression(paste("TF"["iAs/iAs"], " (d/kg)")),
+       caption = "Liver > Kidney > Offal ≈ Muscle\nFirst iAs-specific TFs") +
+  theme_void() +
+  theme(
+    plot.background  = element_rect(fill = ga_tf_c, color = ga_border, linewidth = 0.6),
+    panel.background = element_rect(fill = ga_tf_c, color = NA),
+    plot.title    = element_text(hjust = 0.5, size = 9.0, face = "bold",
+                                 color = ga_orange, margin = margin(t = 6, b = 0)),
+    plot.subtitle = element_text(hjust = 0.5, size = 7.5, color = ga_sub,
+                                 margin = margin(t = 2, b = 6)),
+    plot.caption  = element_text(hjust = 0.5, size = 6.0, color = ga_text,
+                                 lineheight = 1.3, margin = margin(t = 5, b = 2)),
+    axis.text.x   = element_text(size = 6.5, color = ga_text,
+                                 margin = margin(t = 3), lineheight = 0.8),
+    axis.line.x   = element_line(color = "#AAAAAA", linewidth = 0.4),
+    legend.position = "none",
+    plot.margin   = margin(3, 8, 3, 8)
+  ) +
+  coord_cartesian(clip = "off")
+
+# --- Panel 4: Monte Carlo ---
+ga_mc_x  <- seq(0, 10, length.out = 200)
+ga_mc_df <- data.frame(x = ga_mc_x, y = dnorm(ga_mc_x, mean = 5.5, sd = 1.5))
+ga_p5_x  <- qnorm(0.05, mean = 5.5, sd = 1.5)
+
+p_mc <- ga_canvas(ga_mc_c) +
+  annotate("rect", xmin = 0.1, xmax = 9.9, ymin = 0.1, ymax = 9.9,
+           fill = NA, color = ga_border, linewidth = 0.6) +
+  annotate("text", x = 5, y = 9.2, label = "MONTE CARLO",
+           size = 3.2, fontface = "bold", color = ga_purple) +
+  annotate("text", x = 5, y = 8.5, label = sprintf("%s iterations", ga_n_mc),
+           size = 2.5, color = ga_sub) +
+  geom_ribbon(data = ga_mc_df, aes(x = x, ymin = 3.5, ymax = 3.5 + y * 15),
+              fill = "#CE93D8", alpha = 0.5) +
+  geom_line(data = ga_mc_df, aes(x = x, y = 3.5 + y * 15),
+            color = ga_purple, linewidth = 0.7) +
+  annotate("segment", x = ga_p5_x, xend = ga_p5_x, y = 3.2, yend = 7.5,
+           color = ga_red, linewidth = 0.7, linetype = "dashed") +
+  annotate("text", x = ga_p5_x, y = 7.9, label = expression(P[5]),
+           size = 3, fontface = "bold", color = ga_red) +
+  annotate("text", x = 5, y = 2.8, label = "The consumer-only",
+           size = 2.5, color = ga_text) +
+  annotate("text", x = 5, y = 2.1, label = "Cattle products consumption",
+           size = 2.5, color = ga_text) +
+  annotate("text", x = 5, y = 1.4, label = "Skin cancer endpoint",
+           size = 2.5, color = ga_text) +
+  annotate("text", x = 5, y = 0.6, label = expression(paste("Target: CR = ", 10^-6)),
+           size = 2.6, fontface = "bold", color = ga_red)
+
+# --- Panel 5: Proposed MRL ---
+p_mrl <- ga_canvas(ga_mrl_c) +
+  annotate("rect", xmin = 0.2, xmax = 9.8, ymin = 0.2, ymax = 9.8,
+           fill = NA, color = ga_red, linewidth = 1.2) +
+  annotate("text", x = 5, y = 9.0, label = "PROPOSED MRL",
+           size = 3.2, fontface = "bold", color = ga_red) +
+  annotate("text", x = 5, y = 7.0, label = sprintf("%.1f", ga_mrl),
+           size = 13, fontface = "bold", color = ga_red) +
+  annotate("text", x = 5, y = 5.6, label = "µg/kg",
+           size = 5, fontface = "bold", color = ga_red) +
+  annotate("text", x = 5, y = 4.8, label = "iAs in cattle feed",
+           size = 2.5, color = ga_sub) +
+  annotate("segment", x = 1.5, xend = 8.5, y = 4.0, yend = 4.0,
+           color = "#CCCCCC", linewidth = 0.4) +
+  annotate("text", x = 5, y = 3.3, label = "vs. Current tAs MRLs",
+           size = 2.6, fontface = "bold", color = ga_text) +
+  annotate("text", x = 5, y = 2.1,
+           label = sprintf("EU:  2,000 µg/kg  (%d×)", ga_fold_eu),
+           size = 2.3, color = ga_sub) +
+  annotate("text", x = 5, y = 1.0,
+           label = sprintf("NRC:  30,000 µg/kg  (%d×)", ga_fold_nrc),
+           size = 2.3, color = ga_sub)
+
+# --- Title / footer banners ---
+p_ga_title <- ggplot() +
+  coord_cartesian(xlim = c(0, 10), ylim = c(0, 3), expand = FALSE) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = ga_accent, color = NA)) +
+  annotate("text", x = 5, y = 2.0,
+           label = "Health-protective feed MRLs for inorganic arsenic in cattle",
+           size = 5.2, fontface = "bold", color = "white") +
+  annotate("text", x = 5, y = 0.8,
+           label = "A population PBPK-probabilistic risk assessment framework",
+           size = 4.2, fontface = "italic", color = "#BBDEFB")
+
+p_ga_foot <- ggplot() +
+  coord_cartesian(xlim = c(0, 10), ylim = c(0, 3), expand = FALSE) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "#ECEFF1", color = NA)) +
+  annotate("text", x = 5, y = 2.0,
+           label = "Feed-to-tissue iAs transfer pathway -> Probabilistic cancer risk assessment -> Health-based feed MRL",
+           size = 3.2, fontface = "italic", color = ga_border) +
+  annotate("text", x = 5, y = 0.8,
+           label = "The framework for deriving iAs-specific MRLs in cattle feed",
+           size = 3, fontface = "bold", color = ga_accent)
+
+# --- assemble ---
+ga_middle <- arrangeGrob(
+  ggplotGrob(p_feed), ggplotGrob(ga_arrow()), ggplotGrob(p_pbpk),
+  ggplotGrob(ga_arrow()), ggplotGrob(p_tf), ggplotGrob(ga_arrow()),
+  ggplotGrob(p_mc), ggplotGrob(ga_arrow()), ggplotGrob(p_mrl),
+  ncol = 9, widths = c(3, 1, 3, 1, 3, 1, 3, 1, 3))
+
+ga_final <- arrangeGrob(ggplotGrob(p_ga_title), ga_middle, ggplotGrob(p_ga_foot),
+                        nrow = 3, heights = c(1, 6, 1))
+
+ggsave(out_path("C6_graphical_abstract.png"), ga_final,
+       width = 2656, height = 1062, units = "px", dpi = 300, bg = "white")
+
+
+## C15. Final console summary --------------------------------------------------
 
 cat("\n", strrep("=", 65), "\n", sep = "")
 cat("FINAL INTEGRATED-PIPELINE SUMMARY (Adult-only)\n")
