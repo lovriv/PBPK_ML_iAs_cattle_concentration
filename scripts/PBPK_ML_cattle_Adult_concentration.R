@@ -137,7 +137,8 @@ parms <- c(
   # DMA  : 9420 *  1.8 / 1000 =  16.96 ug/day
   PdoseC_AsIII = 134.71, PdoseC_AsV = 838.38, PdoseC_MMA = 135.65, PdoseC_DMA = 16.96,
 
-  # Simulation schedule
+  # Simulation schedule (TSTOP is auto-overridden by the steady-state horizon
+  # detected in section A5b; the value here is only an initial placeholder)
   TSTOP = 200, tlen = 24, FREQ = 24,
 
   # Feed exposure (BTF/TF normalization)
@@ -392,7 +393,46 @@ cat("A1. Running deterministic PBPK...\n")
 
 derived_det <- compute_derived(parms)
 y0          <- setNames(rep(0, length(state_names)), state_names)
-times       <- seq(0, parms["TSTOP"], by = 1)
+
+## A5b. Auto-detect steady-state horizon (slowest tissue < SS_THRESHOLD) -------
+# First-order rate constants now scale BW^-0.25, so equilibration is slower than
+# the legacy fixed 200 h. Integrate the baseline animal to a generous cap, find
+# the time at which the slowest edible tissue's relative rate of change falls
+# below SS_THRESHOLD_PCT_DAY, then use that (rounded up to whole days, + 1 day
+# margin for population heterogeneity) as the horizon. Continuous feeding is
+# maintained over the whole horizon (TSTOP set equal to it).
+SS_THRESHOLD_PCT_DAY <- 0.01
+SS_TCAP_H            <- 2000
+
+find_ss_time <- function(p_full, y0, threshold, t_cap, by = 2) {
+  p_run <- p_full; p_run["TSTOP"] <- t_cap + by      # keep feeding over window
+  tt <- seq(0, t_cap, by = by)
+  o  <- as.data.frame(ode(y = y0, times = tt, func = pbpk_cattle_ode,
+                          parms = p_run, method = "lsoda"))
+  Cm <- (o$AMT_AsIII_muscle + o$AMT_AsV_muscle) / p_full["V_muscle"]
+  Ck <- (o$AMT_AsIII_kid    + o$AMT_AsV_kid)    / p_full["V_kid"]
+  Cl <- (o$AMT_AsIII_liv    + o$AMT_AsV_liv)    / p_full["V_liv"]
+  t_one <- function(C) {
+    Cinf <- tail(C, 1)
+    rate <- c(NA, abs(diff(C)) / by) / Cinf * 24 * 100   # %/day
+    idx  <- which(rate < threshold)
+    if (length(idx) == 0) NA_real_ else tt[idx[1]]
+  }
+  max(t_one(Cm), t_one(Ck), t_one(Cl))
+}
+
+t_ss <- find_ss_time(c(parms, derived_det), y0,
+                     SS_THRESHOLD_PCT_DAY, SS_TCAP_H, by = 2)
+if (is.na(t_ss)) {
+  warning("Steady state not reached within ", SS_TCAP_H, " h; using cap.")
+  t_ss <- SS_TCAP_H
+}
+T_SS  <- ceiling(t_ss / 24) * 24 + 24       # whole days + 1 day margin
+parms["TSTOP"] <- T_SS                        # continuous feeding to horizon
+grid  <- max(1, round(T_SS / 200))            # ~200 output points
+times <- seq(0, T_SS, by = grid)
+cat(sprintf("    Steady state ~%.0f h (%.1f d, <%.2f%%/day); horizon = %d h (%.0f d), grid = %d h\n",
+            t_ss, t_ss / 24, SS_THRESHOLD_PCT_DAY, T_SS, T_SS / 24, grid))
 
 out <- ode(
   y     = y0,    times  = times,
@@ -462,11 +502,14 @@ cat("A3. Population PBPK setup...\n")
 
 pop_dist <- list(
   BW        = c(mean = 621,       sd = 6.21,       lo = 602.37,    hi = 639.63),
-  QCC       = c(mean = 5.45,      sd = 0.545,      lo = 3.815,     hi = 7.085),
+  # QCC and blood-flow fractions: real SDs from Lin Z. 2020 (Tables 13 & 21),
+  # bounds = mean +/- 3 SD with a floor at 0 (CV: QCC 27%, kidney 73%,
+  # hepatic-artery 100%, portal-vein 58%).
+  QCC       = c(mean = 5.45,      sd = 1.47,       lo = 1.04,      hi = 9.86),
   FQ_muscle = c(mean = 0.28,      sd = 0.09,       lo = 0.01,      hi = 0.55),
-  FQ_kid    = c(mean = 0.11,      sd = 0.011,      lo = 0.077,     hi = 0.143),
-  FQ_hep    = c(mean = 0.07,      sd = 0.007,      lo = 0.049,     hi = 0.091),
-  FQ_gi     = c(mean = 0.38,      sd = 0.038,      lo = 0.266,     hi = 0.494),
+  FQ_kid    = c(mean = 0.11,      sd = 0.08,       lo = 0.00,      hi = 0.35),
+  FQ_hep    = c(mean = 0.07,      sd = 0.07,       lo = 0.00,      hi = 0.28),
+  FQ_gi     = c(mean = 0.38,      sd = 0.22,       lo = 0.00,      hi = 1.04),
   FQ_rest   = c(mean = 0.16,      sd = 0.016,      lo = 0.0001,    hi = 0.598),
   FV_lung   = c(mean = 0.0085,    sd = 0.0025,     lo = 0.001,     hi = 0.016),
   FV_muscle = c(mean = 0.3610,    sd = 0.1137,     lo = 0.0199,    hi = 0.7021),
