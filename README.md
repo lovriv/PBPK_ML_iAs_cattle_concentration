@@ -1,16 +1,19 @@
-# Inorganic arsenic in beef cattle — integrated PBPK + MRL risk assessment
+# Inorganic arsenic in beef cattle — population PBPK + risk assessment (concentration-based)
 
-This repository contains the R code used to derive a Maximum Residue Limit
-(MRL) for inorganic arsenic (iAs) in beef cattle feed via:
+This repository contains the R code used to derive a health-based **Maximum
+Limit (ML)** for inorganic arsenic (iAs) in beef cattle feed. This is the
+**concentration-based** variant of the analysis: the risk assessment is driven
+directly by the **population distribution of steady-state tissue iAs
+concentrations** predicted by the PBPK model.
 
 1. A **physiologically-based pharmacokinetic (PBPK) model** that simulates
    AsIII / AsV / MMA / DMA distribution in cattle tissues (Hung 2021 control
-   diet).
-2. A **Monte Carlo risk assessment** that converts the PBPK-derived tissue
-   transfer factors (TFs) into a cancer-based MRL for Adult consumers,
-   protective at the 1-in-1,000,000 lifetime risk level.
-
-> **Status:** under peer review — private repository.
+   diet) and yields, per virtual animal, the steady-state iAs (AsIII + AsV)
+   concentration in muscle, liver, kidney, and other offal.
+2. A **Monte Carlo risk assessment** that resamples these per-animal
+   steady-state tissue concentrations and back-calculates a cancer-based feed
+   ML for adult consumers, protective at the 1-in-1,000,000 lifetime risk
+   level.
 
 ---
 
@@ -19,17 +22,18 @@ This repository contains the R code used to derive a Maximum Residue Limit
 ```
 .
 |-- scripts/
-|   `-- PBPK_MRL_cattle_Adult.R    # Single integrated pipeline
+|   |-- PBPK_ML_cattle_Adult_concentration.R   # Integrated pipeline (concentration-based)
+|   `-- check_steady_state.R                   # Time-to-steady-state diagnostic
 |-- data/
-|   `-- food_intake_iAs.xlsx       # Inputs: food intake, bodyweight, CSF
-|-- output/                         # Generated artefacts (git-ignored)
+|   `-- food_intake_iAs.xlsx                    # Inputs: food intake, bodyweight, CSF
+|-- output_concentration/                       # Generated artefacts (git-ignored)
 |-- README.md
 |-- LICENSE
 `-- .gitignore
 ```
 
-The script is fully self-contained: it auto-detects its own location and
-reads `data/` / writes `output/` relative to the repository root.
+The script auto-detects its own location and reads `data/` / writes
+`output_concentration/` relative to the repository root.
 
 ---
 
@@ -53,74 +57,41 @@ install.packages(c("deSolve", "tidyverse", "parallel", "gridExtra",
 From a terminal at the repository root:
 
 ```bash
-Rscript scripts/PBPK_MRL_cattle_Adult.R
+Rscript scripts/PBPK_ML_cattle_Adult_concentration.R
 ```
 
-Or from within RStudio: open the script and `source()` it.
+Or from within RStudio: open the script and `source()` it. Runtime is a few
+minutes (PBPK population on multiple cores, then the risk Monte Carlo). The
+PBPK section runs in parallel (`parallel::makeCluster` on Windows,
+`mclapply` on Unix).
 
-Runtime: ~6 minutes on 7 cores (PBPK ~5 min, MRL ~1 min). The PBPK section
-uses parallel execution; on Windows it spawns a `parallel::makeCluster`,
-on Unix it uses `mclapply`.
+### Steady-state diagnostic
 
-Optional: set `N_RUNS` to change the PBPK Monte Carlo size (default 1000):
+After the main pipeline has produced the deterministic time course, check when
+tissue iAs reaches steady state:
 
 ```bash
-N_RUNS=5000 Rscript scripts/PBPK_MRL_cattle_Adult.R
+Rscript scripts/check_steady_state.R
 ```
+
+It reports, per tissue, the time to reach 90/95/99/99.9% of the plateau and a
+rate-based time (when the relative rate of change falls below 1.0 / 0.5 /
+0.1 %/day). A custom path to `A_pbpk_deterministic.csv` can be passed as an
+argument.
 
 ---
 
-## Workflow inside the script
+## Workflow inside the main script
 
 | Part | Steps | Outputs |
 |------|-------|---------|
-| **A. PBPK** | Deterministic ODE + mass balance + 10000-run Monte Carlo | `A_*` CSVs and figures in `output/` |
-| **B. TF bridge** | Compute TF mean + 95% CI from PBPK population | `B_TF_summary.csv` |
-| **C. MRL** | 10000-trial Monte Carlo cancer risk model | `C_*` CSVs and figures |
-
-Console summary reports:
-- PBPK mass balance (two independent checks, both should pass within
-  `stopifnot` tolerances)
-- TF point estimates and 95% CI per tissue
-- Final MRL recommendation in ug iAs / kg feed dry matter
-
----
-
-## Key outputs
-
-Generated under `output/` after running the script:
-
-- `A4_Cattle_Tissue_TimeCourse.tiff` — publication-grade time course (Fig. 1)
-- `A5_Cattle_SteadyState_Distribution.tiff` — population distribution (Fig. 5)
-- `C1_MRL_distribution.png` — Monte Carlo MRL histogram (Fig. 4)
-- `C_Table4_MRL_by_endpoint.csv` — Table 4 raw values
-- `C_regulatory_summary.csv` — final regulatory recommendation
-
----
-
-## Data source
-
-`data/food_intake_iAs.xlsx` contains three sheets:
-
-- **food intake** — population-level food intake (g/day) per age group,
-  per tissue (meat / liver / kidney / others), per population (general
-  public / consumer only). Source: Taiwan National Food Consumption Survey.
-- **bodyweight** — bodyweight (kg) distribution per age group.
-- **csf** — cancer slope factors for skin, lung, bladder
-  (units: (ug/kg-day)^-1).
-
-PBPK control dose corresponds to the Ching-Chi Hung (2021) iAs control diet
-fed to cattle (9420 g DM/day, 103 ug iAs/kg DM = AsIII 14.3 + AsV 89).
-
----
-
-## Citation
-
-If you use this code, please cite the accompanying manuscript (forthcoming).
-A DOI for the archived release will be issued via Zenodo upon acceptance.
+| **A. PBPK** | Deterministic ODE + mass balance + 10,000-run population Monte Carlo | `A_*` CSVs and figures in `output_concentration/` |
+| **B. Concentrations** | Build per-animal steady-state tissue iAs concentration table | in-memory inputs for Part C |
+| **C. Risk / ML** | 10,000-trial Monte Carlo cancer-risk model using steady-state concentrations | `C_*` CSVs and figures |
 
 ---
 
 ## License
 
-See [LICENSE](LICENSE) (MIT).
+Released under the MIT License (see `LICENSE`). The repository will be archived
+on Zenodo with a permanent DOI upon acceptance.
