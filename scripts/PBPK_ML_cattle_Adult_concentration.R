@@ -108,11 +108,12 @@ parms <- c(
   P_AsIII_gi     = 2.80, P_AsV_gi     = 2.80, P_MMA_gi     = 1.200, P_DMA_gi     = 1.400,
   P_AsIII_rest   = 2.60, P_AsV_rest   = 2.60, P_MMA_rest   = 1.800, P_DMA_rest   = 2.800,
 
-  # Absorption rate constants (hr-1)
-  Ka_AsIII = 1.23e+00, Ka_AsV = 9.25e-01, Ka_MMA = 2.16e+00, Ka_DMA = 2.16e+00,
+  # Absorption rate constants (hr-1); human (El-Masri, /hr) scaled BW^-0.25
+  Ka_AsIII = 0.24 * (621/70)^(-0.25), Ka_AsV = 0.18 * (621/70)^(-0.25),
+  Ka_MMA   = 0.42 * (621/70)^(-0.25), Ka_DMA = 0.42 * (621/70)^(-0.25),
 
-  # Oxidation / reduction
-  K_red_AsV_to_AsIII = 7.04e+00, K_ox_AsIII_to_AsV = 9.41e+00,
+  # Oxidation / reduction (hr-1); human scaled BW^-0.25
+  K_red_AsV_to_AsIII = 1.37 * (621/70)^(-0.25), K_ox_AsIII_to_AsV = 1.83 * (621/70)^(-0.25),
 
   # Methylation - liver
   Vmax_AsIII_to_MMA_liv = 1.60e+02, Km_AsIII_to_MMA_liv = 100,
@@ -124,10 +125,10 @@ parms <- c(
   Vmax_AsIII_to_DMA_kid = 1.43e+02, Km_AsIII_to_DMA_kid = 100,
   Vmax_MMA_to_DMA_kid   = 7.13e+01, Km_MMA_to_DMA_kid   = 100,
 
-  # Urinary, biliary, faecal excretion
-  k_urine_AsIII = 2.16e+01, k_urine_AsV = 2.16e+01,
-  k_urine_MMA   = 9.25e+01, k_urine_DMA = 4.01e+01,
-  eF_AsV = 6.43e-03, eB_AsV = 9.21e-02,
+  # Urinary, biliary, faecal excretion (hr-1); human scaled BW^-0.25
+  k_urine_AsIII = 4.2 * (621/70)^(-0.25), k_urine_AsV = 4.2 * (621/70)^(-0.25),
+  k_urine_MMA   = 18  * (621/70)^(-0.25), k_urine_DMA = 7.8 * (621/70)^(-0.25),
+  eF_AsV = 1.25e-3 * (621/70)^(-0.25), eB_AsV = 1.79e-2 * (621/70)^(-0.25),
 
   # --- Oral doses (ug/day) - Hung 2021 iAs_control raw data ---
   # AsIII: 9420 g/day * 14.3 ug/kg DM / 1000 = 134.71 ug/day

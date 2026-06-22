@@ -25,7 +25,8 @@ concentrations** predicted by the PBPK model.
 |   |-- PBPK_ML_cattle_Adult_concentration.R   # Integrated pipeline (concentration-based)
 |   `-- check_steady_state.R                   # Time-to-steady-state diagnostic
 |-- data/
-|   `-- food_intake_iAs.xlsx                    # Inputs: food intake, bodyweight, CSF
+|   |-- food_intake_iAs.xlsx                    # Inputs: food intake, bodyweight, CSF
+|   `-- parameter_conversion.csv                # Human -> cattle kinetic parameter scaling
 |-- output_concentration/                       # Generated artefacts (git-ignored)
 |-- README.md
 |-- LICENSE
@@ -34,6 +35,17 @@ concentrations** predicted by the PBPK model.
 
 The script auto-detects its own location and reads `data/` / writes
 `output_concentration/` relative to the repository root.
+
+### Cross-species parameter scaling
+
+Kinetic parameters are extrapolated from a validated human arsenic PBPK model
+(El-Masri & Kenyon 2008; Yu 1999; Mann et al. 1996) to cattle (human 70 kg ->
+cattle 621 kg). Following standard allometric theory, **first-order rate
+constants** (absorption `Ka`, redox `K_red`/`K_ox`, urinary/biliary/faecal
+excretion) scale as **BW^-0.25**, **maximum metabolic velocities** (`Vmax`)
+scale as **BW^0.75**, and **Michaelis-Menten constants** (`Km`) are invariant
+(`BW^0`). The full per-parameter mapping (human value, scaling rule, factor,
+cattle value) is tabulated in `data/parameter_conversion.csv`.
 
 ---
 
