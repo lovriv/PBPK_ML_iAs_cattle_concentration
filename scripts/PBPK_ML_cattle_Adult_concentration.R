@@ -1,5 +1,5 @@
 # =============================================================================
-# PBPK_MRL_cattle_Adult.R  -- INTEGRATED PIPELINE
+# PBPK_ML_cattle_Adult.R  -- INTEGRATED PIPELINE
 #
 # Combines two stages in a single self-contained R script:
 #
@@ -9,9 +9,9 @@
 #
 #   PART B: Build TF_cattle distribution (mean + 95% CI) from PBPK output
 #
-#   PART C: MRL risk assessment (Adult-only, lifetime = 70 years)
+#   PART C: ML risk assessment (Adult-only, lifetime = 70 years)
 #           - 10000-trial Monte Carlo cancer risk model
-#           - Output: Maximum Residue Limit (MRL) of iAs in cattle feed
+#           - Output: Maximum Residue Limit (ML) of iAs in cattle feed
 #
 # Adult-only design (no age stratification):
 #   ED_age = c(Adult = 70)
@@ -32,7 +32,7 @@ suppressPackageStartupMessages({
   library(parallel)
   library(gridExtra)
   library(grid)
-  # MRL
+  # ML
   library(readxl)
   library(MASS)
   library(truncnorm)
@@ -72,7 +72,7 @@ EXCEL_PATH <- file.path(REPO_ROOT, "data", "food_intake_iAs.xlsx")
 dir.create(OUT_DIR, showWarnings = FALSE, recursive = TRUE)
 out_path <- function(filename) file.path(OUT_DIR, filename)
 
-cat("INTEGRATED PIPELINE: PBPK -> TF -> MRL  (Adult only)\n")
+cat("INTEGRATED PIPELINE: PBPK -> TF -> ML  (Adult only)\n")
 cat("=====================================================\n")
 cat("Output directory:", OUT_DIR, "\n\n")
 
@@ -480,7 +480,7 @@ pop_dist <- list(
 # CANONICAL run size - LOCKED for manuscript reproducibility.
 # All reported numbers and figures derive from this exact configuration:
 #   PBPK population = 10000 | PBPK seed = 4729
-#   MRL Monte Carlo = 10000 | MRL  seed = 123  (see config below)
+#   ML Monte Carlo = 10000 | ML  seed = 123  (see config below)
 n_runs_pbpk <- 10000L
 cat("    n_runs =", n_runs_pbpk, "(locked canonical)\n")
 
@@ -902,11 +902,11 @@ write.csv(tf_summary, out_path("B_TF_summary.csv"), row.names = FALSE)
 
 # =============================================================================
 # =============================================================================
-#                   PART C: MRL RISK ASSESSMENT (Adult-only)
+#                   PART C: ML RISK ASSESSMENT (Adult-only)
 # =============================================================================
 # =============================================================================
 
-cat("\n[PART C] MRL RISK ASSESSMENT (Adult only)\n")
+cat("\n[PART C] ML RISK ASSESSMENT (Adult only)\n")
 cat("-----------------------------------------\n")
 
 
@@ -1025,10 +1025,10 @@ run_simulation <- function(population_type, n_trials) {
   pop_data <- cattle_data |> filter(population == population_type)
   if (nrow(pop_data) == 0) stop("No data for: ", population_type)
 
-  MRL_skin_vec    <- numeric(n_trials)
-  MRL_lung_vec    <- numeric(n_trials)
-  MRL_bladder_vec <- numeric(n_trials)
-  MRL_unified_vec <- numeric(n_trials)
+  ML_skin_vec    <- numeric(n_trials)
+  ML_lung_vec    <- numeric(n_trials)
+  ML_bladder_vec <- numeric(n_trials)
+  ML_unified_vec <- numeric(n_trials)
   total_ef_vec    <- numeric(n_trials)
   bioavail_vec    <- numeric(n_trials)
   feeding_rate_vec <- numeric(n_trials)
@@ -1124,13 +1124,13 @@ run_simulation <- function(population_type, n_trials) {
     }
 
     if (total_ef > 0) {
-      MRL_skin_vec[trial]    <- config$acceptable_risk / (csf_skin    * total_ef)
-      MRL_lung_vec[trial]    <- config$acceptable_risk / (csf_lung    * total_ef)
-      MRL_bladder_vec[trial] <- config$acceptable_risk / (csf_bladder * total_ef)
-      MRL_unified_vec[trial] <- min(MRL_skin_vec[trial], MRL_lung_vec[trial], MRL_bladder_vec[trial])
+      ML_skin_vec[trial]    <- config$acceptable_risk / (csf_skin    * total_ef)
+      ML_lung_vec[trial]    <- config$acceptable_risk / (csf_lung    * total_ef)
+      ML_bladder_vec[trial] <- config$acceptable_risk / (csf_bladder * total_ef)
+      ML_unified_vec[trial] <- min(ML_skin_vec[trial], ML_lung_vec[trial], ML_bladder_vec[trial])
     } else {
-      MRL_skin_vec[trial] <- NA; MRL_lung_vec[trial] <- NA
-      MRL_bladder_vec[trial] <- NA; MRL_unified_vec[trial] <- NA
+      ML_skin_vec[trial] <- NA; ML_lung_vec[trial] <- NA
+      ML_bladder_vec[trial] <- NA; ML_unified_vec[trial] <- NA
     }
     total_ef_vec[trial]     <- total_ef
     bioavail_vec[trial]     <- bioavailability
@@ -1139,10 +1139,10 @@ run_simulation <- function(population_type, n_trials) {
 
   results <- data.frame(
     trial        = 1:n_trials,
-    MRL_skin     = MRL_skin_vec,
-    MRL_lung     = MRL_lung_vec,
-    MRL_bladder  = MRL_bladder_vec,
-    MRL_unified  = MRL_unified_vec,
+    ML_skin     = ML_skin_vec,
+    ML_lung     = ML_lung_vec,
+    ML_bladder  = ML_bladder_vec,
+    ML_unified  = ML_unified_vec,
     total_ef     = total_ef_vec,
     bioavail     = bioavail_vec,
     feeding_rate = feeding_rate_vec
@@ -1162,11 +1162,11 @@ run_simulation <- function(population_type, n_trials) {
 ## C7. Run MC simulations -----------------------------------------------------
 
 cat("C3. Running Monte Carlo simulations (", config$n_sim, "trials each)...\n")
-t_start_mrl <- proc.time()
+t_start_ml <- proc.time()
 results_general  <- run_simulation("general public", config$n_sim)
 results_consumer <- run_simulation("consumer only",  config$n_sim)
-elapsed_mrl <- (proc.time() - t_start_mrl)["elapsed"]
-cat(sprintf("    Done in %.1f s\n", elapsed_mrl))
+elapsed_ml <- (proc.time() - t_start_ml)["elapsed"]
+cat(sprintf("    Done in %.1f s\n", elapsed_ml))
 
 
 ## C8. Statistical analysis ---------------------------------------------------
@@ -1174,16 +1174,16 @@ cat(sprintf("    Done in %.1f s\n", elapsed_mrl))
 cat("C4. Statistical analysis...\n")
 
 calc_summary <- function(results, pop_name) {
-  MRL <- results$MRL_unified[!is.na(results$MRL_unified)]
-  if (length(MRL) == 0) return(NULL)
+  ML <- results$ML_unified[!is.na(results$ML_unified)]
+  if (length(ML) == 0) return(NULL)
   data.frame(
-    Population = pop_name, N_Valid = length(MRL),
-    Mean = mean(MRL), Median = median(MRL),
-    SD = sd(MRL), CV = sd(MRL) / mean(MRL),
-    Min = min(MRL), Max = max(MRL),
-    P01 = quantile(MRL, 0.01), P05 = quantile(MRL, 0.05),
-    P10 = quantile(MRL, 0.10), P50 = quantile(MRL, 0.50),
-    P95 = quantile(MRL, 0.95), P99 = quantile(MRL, 0.99)
+    Population = pop_name, N_Valid = length(ML),
+    Mean = mean(ML), Median = median(ML),
+    SD = sd(ML), CV = sd(ML) / mean(ML),
+    Min = min(ML), Max = max(ML),
+    P01 = quantile(ML, 0.01), P05 = quantile(ML, 0.05),
+    P10 = quantile(ML, 0.10), P50 = quantile(ML, 0.50),
+    P95 = quantile(ML, 0.95), P99 = quantile(ML, 0.99)
   )
 }
 
@@ -1191,7 +1191,7 @@ summary_general  <- calc_summary(results_general,  "General Public")
 summary_consumer <- calc_summary(results_consumer, "Consumer Only")
 combined_summary <- rbind(summary_general, summary_consumer)
 
-cat("\n  Summary (MRL_unified, ug/kg):\n")
+cat("\n  Summary (ML_unified, ug/kg):\n")
 print(combined_summary[, c("Population", "N_Valid", "Mean", "Median", "P05", "P95", "CV")],
       digits = 5, row.names = FALSE)
 
@@ -1200,27 +1200,27 @@ print(combined_summary[, c("Population", "N_Valid", "Mean", "Median", "P05", "P9
 
 p5_general  <- summary_general$P05
 p5_consumer <- summary_consumer$P05
-final_MRL   <- min(p5_general, p5_consumer)
+final_ML   <- min(p5_general, p5_consumer)
 protecting  <- if (p5_general < p5_consumer) "General Public" else "Consumer Only"
 
 cat("\n  Regulatory recommendation:\n")
 cat(sprintf("    P5 General Public: %8.4f ug/kg\n", p5_general))
 cat(sprintf("    P5 Consumer Only : %8.4f ug/kg\n", p5_consumer))
-cat(sprintf("    FINAL MRL        : %8.4f ug/kg  (protecting %s)\n",
-            final_MRL, protecting))
+cat(sprintf("    FINAL ML        : %8.4f ug/kg  (protecting %s)\n",
+            final_ML, protecting))
 
 
 ## C10. Sensitivity analysis ---------------------------------------------------
 
 cat("C5. Sensitivity analysis (general public)...\n")
 sens_data <- results_general |>
-  select(MRL_unified, total_ef, bioavail) |>
-  filter(!is.na(MRL_unified))
+  select(ML_unified, total_ef, bioavail) |>
+  filter(!is.na(ML_unified))
 
-corr_ef  <- cor(sens_data$MRL_unified, sens_data$total_ef, method = "spearman")
-corr_bio <- cor(sens_data$MRL_unified, sens_data$bioavail, method = "spearman")
-cat(sprintf("    Spearman r(MRL, total_ef)  = %.4f\n", corr_ef))
-cat(sprintf("    Spearman r(MRL, bioavail) = %.4f\n", corr_bio))
+corr_ef  <- cor(sens_data$ML_unified, sens_data$total_ef, method = "spearman")
+corr_bio <- cor(sens_data$ML_unified, sens_data$bioavail, method = "spearman")
+cat(sprintf("    Spearman r(ML, total_ef)  = %.4f\n", corr_ef))
+cat(sprintf("    Spearman r(ML, bioavail) = %.4f\n", corr_bio))
 
 sensitivity_results <- data.frame(
   Parameter   = c("Total Exposure Factor", "Bioavailability"),
@@ -1333,79 +1333,93 @@ write.csv(val_out, out_path("C_validation_summary.csv"), row.names = FALSE)
 diag_fi    <- diag_gp[is.finite(diag_gp$fi), ]
 fi_tissues <- intersect(tissues, unique(diag_fi$tissue))
 diag_fi$tissue <- factor(diag_fi$tissue, levels = fi_tissues)
-lab_df <- data.frame(
-  tissue = factor(val_corr$tissue[!is.na(val_corr$r_pearson)], levels = fi_tissues),
-  label  = sprintf("r = %.3f", val_corr$r_pearson[!is.na(val_corr$r_pearson)])
-)
-p_val <- ggplot(diag_fi, aes(bw, fi)) +
-  geom_point(alpha = 0.08, size = 0.4, colour = "#4393c3") +
-  geom_smooth(method = "lm", formula = y ~ x, se = FALSE,
-              colour = "firebrick", linewidth = 0.8) +
-  geom_text(data = lab_df, aes(x = -Inf, y = Inf, label = label),
-            hjust = -0.15, vjust = 1.6, size = 3.8, fontface = "bold",
-            inherit.aes = FALSE) +
-  facet_wrap(~tissue, scales = "free_y") +
-  labs(title = sprintf("BW-FI correlation by tissue (target r = %.2f)",
-                       config$target_correlation),
-       subtitle = "General public; red line = linear fit. Liver and kidney omitted (zero reported intake).",
-       x = "Body weight (kg)", y = "Food intake (g/day)") +
-  theme_bw(base_size = 11) +
-  theme(strip.text = element_text(face = "bold"))
+# 3-panel BW-intake correlation figure: consumer meat (A), consumer other
+# offal (B), cattle feed intake (C) -- matches the manuscript Figure 3 layout.
+mk_corr_panel <- function(df, xv, yv, ttl, rval, xlab, ylab, tag) {
+  ggplot(df, aes(.data[[xv]], .data[[yv]])) +
+    geom_point(alpha = 0.08, size = 0.4, colour = "#4393c3") +
+    geom_smooth(method = "lm", formula = y ~ x, se = FALSE,
+                colour = "firebrick", linewidth = 0.8) +
+    annotate("text", x = -Inf, y = Inf,
+             label = sprintf("r = %.3f (target = 0.50)", rval),
+             hjust = -0.1, vjust = 1.8, size = 3.4, fontface = "bold") +
+    labs(title = ttl, x = xlab, y = ylab, tag = tag) +
+    theme_bw(base_size = 11) +
+    theme(plot.title = element_text(face = "bold", size = 11),
+          plot.tag   = element_text(face = "bold", size = 13))
+}
+
+d_meat   <- diag_fi[diag_fi$tissue == "meat", ]
+d_offal  <- diag_fi[diag_fi$tissue == "others", ]
+d_cattle <- data.frame(bw = parm_samples[, "BW"], fr = parm_samples[, "FR_feed"])
+r_meat   <- val_corr$r_pearson[val_corr$tissue == "meat"]
+r_offal  <- val_corr$r_pearson[val_corr$tissue == "others"]
+r_cattle <- cor(d_cattle$bw, d_cattle$fr)
+
+pA <- mk_corr_panel(d_meat,   "bw", "fi", "Consumer - meat",        r_meat,
+                    "Consumer body weight (kg)", "Dietary intake (g/day)", "A")
+pB <- mk_corr_panel(d_offal,  "bw", "fi", "Consumer - other offal", r_offal,
+                    "Consumer body weight (kg)", "Dietary intake (g/day)", "B")
+pC <- mk_corr_panel(d_cattle, "bw", "fr", "Cattle - FR_feed",       r_cattle,
+                    "Cattle body weight (kg)",
+                    expression(FR[feed]~(kg~DM/day)), "C")
+
+p_val <- arrangeGrob(pA, pB, pC, ncol = 3)
 ggsave(out_path("C5_BW_FI_correlation.png"), p_val,
-       width = 9, height = 4.5, dpi = 300)
+       width = 12, height = 4, dpi = 300, bg = "white")
 
 
-## C12. MRL plots --------------------------------------------------------------
+## C12. ML plots --------------------------------------------------------------
 
-cat("C7. Creating MRL plots...\n")
+cat("C7. Creating ML plots...\n")
 
 plot_data <- rbind(
-  data.frame(Population = "General Public", MRL_unified = results_general$MRL_unified),
-  data.frame(Population = "Consumer Only",  MRL_unified = results_consumer$MRL_unified)
-) |> filter(!is.na(MRL_unified))
+  data.frame(Population = "General Public", ML_unified = results_general$ML_unified),
+  data.frame(Population = "Consumer Only",  ML_unified = results_consumer$ML_unified)
+) |> filter(!is.na(ML_unified))
 
 # P1: Distribution histogram
-pC1 <- ggplot(plot_data, aes(x = MRL_unified, fill = Population)) +
+pC1 <- ggplot(plot_data, aes(x = ML_unified, fill = Population)) +
   geom_histogram(alpha = 0.7, bins = 50, position = "identity",
                  color = "black", linewidth = 0.2) +
   # extra right-side expansion + plot margin so the last (largest) axis
   # label is not clipped at the image edge
   scale_x_log10(labels = scales::comma_format(),
                 expand = expansion(mult = c(0.03, 0.12))) +
-  geom_vline(xintercept = final_MRL, color = "red",
+  geom_vline(xintercept = final_ML, color = "red",
              linetype = "dashed", linewidth = 0.8) +
-  annotate("text", x = final_MRL * 1.2, y = Inf,
-           label = paste("Proposed ML:", round(final_MRL, 0), "ug/kg"),
+  annotate("text", x = final_ML * 1.2, y = Inf,
+           label = paste("Proposed ML:", round(final_ML, 0), "ug/kg"),
            vjust = 1.5, hjust = 0, color = "red", size = 4, fontface = "bold") +
   labs(x = "Unified ML (ug/kg, log-scale)", y = "Frequency", fill = NULL) +
   theme_classic(base_size = 12) +
   theme(legend.position = "bottom",
         plot.margin = margin(t = 10, r = 28, b = 10, l = 10, unit = "pt"))
-ggsave(out_path("C1_MRL_distribution.png"),
+ggsave(out_path("C1_ML_distribution.png"),
        pC1, width = 8, height = 6, dpi = 300, bg = "white")
 
 # P2: Boxplot
-pC2 <- ggplot(plot_data, aes(Population, MRL_unified, fill = Population)) +
+pC2 <- ggplot(plot_data, aes(Population, ML_unified, fill = Population)) +
   geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
   scale_y_log10(labels = scales::comma_format()) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 3, color = "red") +
-  geom_hline(yintercept = final_MRL, color = "red", linetype = "dashed") +
+  geom_hline(yintercept = final_ML, color = "red", linetype = "dashed") +
   labs(title = "ML comparison (cattle, Adult only)",
        subtitle = "Red diamond = mean | red line = final recommendation",
        x = NULL, y = "ML (ug/kg, log-scale)") +
   theme_minimal(base_size = 12) + theme(legend.position = "none")
-ggsave(out_path("C2_MRL_boxplot.png"),
+ggsave(out_path("C2_ML_boxplot.png"),
        pC2, width = 8, height = 6, dpi = 300, bg = "white")
 
 # P3: Cancer endpoint comparison (general public)
 endpoint_data <- data.frame(
   Cancer_Type = rep(c("Skin", "Lung", "Bladder", "Unified"),
                     each = nrow(results_general)),
-  MRL_Value   = c(results_general$MRL_skin, results_general$MRL_lung,
-                  results_general$MRL_bladder, results_general$MRL_unified)
-) |> filter(!is.na(MRL_Value))
+  ML_Value   = c(results_general$ML_skin, results_general$ML_lung,
+                  results_general$ML_bladder, results_general$ML_unified)
+) |> filter(!is.na(ML_Value))
 
-pC3 <- ggplot(endpoint_data, aes(Cancer_Type, MRL_Value, fill = Cancer_Type)) +
+pC3 <- ggplot(endpoint_data, aes(Cancer_Type, ML_Value, fill = Cancer_Type)) +
   geom_boxplot(alpha = 0.7) +
   scale_y_log10(labels = scales::comma_format()) +
   scale_fill_brewer(type = "qual", palette = "Set2") +
@@ -1413,7 +1427,7 @@ pC3 <- ggplot(endpoint_data, aes(Cancer_Type, MRL_Value, fill = Cancer_Type)) +
        subtitle = "Unified = min(Skin, Lung, Bladder)",
        x = "Endpoint", y = "ML (ug/kg, log-scale)") +
   theme_minimal(base_size = 12) + theme(legend.position = "none")
-ggsave(out_path("C3_MRL_by_endpoint.png"),
+ggsave(out_path("C3_ML_by_endpoint.png"),
        pC3, width = 8, height = 6, dpi = 300, bg = "white")
 
 # P4: Sensitivity tornado
@@ -1439,10 +1453,10 @@ write.csv(results_consumer, out_path("C_results_consumer_only.csv"),  row.names 
 write.csv(combined_summary, out_path("C_summary_statistics.csv"),     row.names = FALSE)
 
 regulatory_summary <- data.frame(
-  Parameter = c("General_Public_P5", "Consumer_Only_P5", "Final_MRL",
+  Parameter = c("General_Public_P5", "Consumer_Only_P5", "Final_ML",
                 "Acceptable_Risk", "Lifetime_LT", "Simulation_Trials",
                 "TF_meat_mean", "TF_liver_mean", "TF_kidney_mean", "PBPK_n_runs"),
-  Value     = c(round(p5_general, 6), round(p5_consumer, 6), round(final_MRL, 6),
+  Value     = c(round(p5_general, 6), round(p5_consumer, 6), round(final_ML, 6),
                 config$acceptable_risk, LT, config$n_sim,
                 TF_cattle$meat$mean, TF_cattle$liver$mean, TF_cattle$kidney$mean,
                 n_runs_pbpk),
@@ -1456,12 +1470,12 @@ calc_endpoint_stats <- function(values) {
   v <- values[!is.na(values)]
   list(mean = mean(v), p5 = quantile(v, 0.05), p95 = quantile(v, 0.95))
 }
-gen_skin    <- calc_endpoint_stats(results_general$MRL_skin)
-gen_lung    <- calc_endpoint_stats(results_general$MRL_lung)
-gen_bladder <- calc_endpoint_stats(results_general$MRL_bladder)
-con_skin    <- calc_endpoint_stats(results_consumer$MRL_skin)
-con_lung    <- calc_endpoint_stats(results_consumer$MRL_lung)
-con_bladder <- calc_endpoint_stats(results_consumer$MRL_bladder)
+gen_skin    <- calc_endpoint_stats(results_general$ML_skin)
+gen_lung    <- calc_endpoint_stats(results_general$ML_lung)
+gen_bladder <- calc_endpoint_stats(results_general$ML_bladder)
+con_skin    <- calc_endpoint_stats(results_consumer$ML_skin)
+con_lung    <- calc_endpoint_stats(results_consumer$ML_lung)
+con_bladder <- calc_endpoint_stats(results_consumer$ML_bladder)
 
 table4 <- data.frame(
   Cancer_endpoint = rep(c("Skin", "Lung", "Bladder"), 2),
@@ -1473,20 +1487,20 @@ table4 <- data.frame(
   P95  = c(gen_skin$p95, gen_lung$p95, gen_bladder$p95,
            con_skin$p95, con_lung$p95, con_bladder$p95)
 )
-write.csv(table4, out_path("C_Table4_MRL_by_endpoint.csv"), row.names = FALSE)
+write.csv(table4, out_path("C_Table4_ML_by_endpoint.csv"), row.names = FALSE)
 
 
 ## C14. Graphical abstract ----------------------------------------------------
 # Five-panel summary banner: Feed -> Population PBPK -> Transfer Factors ->
-# Monte Carlo -> Proposed MRL. All numbers are pulled live from the pipeline
-# (n_runs_pbpk, TF_cattle, config$n_sim, final_MRL) so the figure always
+# Monte Carlo -> Proposed ML. All numbers are pulled live from the pipeline
+# (n_runs_pbpk, TF_cattle, config$n_sim, final_ML) so the figure always
 # matches the canonical run.
 
 cat("C9. Building graphical abstract...\n")
 
 # --- palette ---
 ga_bg <- "#F7F9FC"; ga_feed_c <- "#E8F0FE"; ga_pbpk_c <- "#D4E8D1"
-ga_tf_c <- "#FFF3E0"; ga_mc_c <- "#F3E5F5"; ga_mrl_c <- "#FFEBEE"
+ga_tf_c <- "#FFF3E0"; ga_mc_c <- "#F3E5F5"; ga_ml_c <- "#FFEBEE"
 ga_accent <- "#1565C0"; ga_green <- "#2E7D32"; ga_orange <- "#E65100"
 ga_purple <- "#6A1B9A"; ga_red <- "#C62828"; ga_border <- "#546E7A"
 ga_text <- "#212121"; ga_sub <- "#666666"
@@ -1515,11 +1529,11 @@ ga_arrow <- function() {
 ga_n_pbpk    <- format(n_runs_pbpk, big.mark = ",")
 ga_n_mc      <- format(config$n_sim, big.mark = ",")
 ga_feed_rate <- unname(parms["feed_intake_kg"])
-ga_mrl      <- round(final_MRL, 1)
-# Current international tAs feed MRLs span 2,000-30,000 ug/kg
+ga_ml      <- round(final_ML, 1)
+# Current international tAs feed MLs span 2,000-30,000 ug/kg
 # (CFIA 2015; EU 2019; FSANZ 2001; U.S. NRC 2005)
-ga_fold_lo  <- round(2000  / ga_mrl)
-ga_fold_hi  <- round(30000 / ga_mrl)
+ga_fold_lo  <- round(2000  / ga_ml)
+ga_fold_hi  <- round(30000 / ga_ml)
 
 # --- Panel 1: Feed input ---
 p_feed <- ga_canvas(ga_feed_c) +
@@ -1576,18 +1590,17 @@ p_pbpk <- ga_canvas(ga_pbpk_c) +
   annotate("text", x = 5, y = 0.8, label = "Steady state: ~200 hours",
            size = 2.5, color = ga_text)
 
-# --- Panel 3: Transfer factors (live TF_cattle values) ---
-ga_tf <- data.frame(
+# --- Panel 3: Steady-state tissue iAs concentrations (live values) ---
+ga_conc <- data.frame(
   tissue = factor(c("Muscle", "Other\noffal", "Kidney", "Liver"),
                   levels = c("Muscle", "Other\noffal", "Kidney", "Liver")),
-  TF = c(TF_cattle$meat$mean, TF_cattle$others$mean,
-         TF_cattle$kidney$mean, TF_cattle$liver$mean)
+  value = c(mean(conc_pop$meat), mean(conc_pop$others),
+            mean(conc_pop$kidney), mean(conc_pop$liver))
 )
-ga_tf_max <- max(ga_tf$TF)
 
-p_tf <- ggplot(ga_tf, aes(x = tissue, y = TF)) +
+p_tf <- ggplot(ga_conc, aes(x = tissue, y = value)) +
   geom_col(aes(fill = tissue, color = tissue), width = 0.7, linewidth = 0.6) +
-  geom_text(aes(label = sprintf("%.4f", TF), color = tissue),
+  geom_text(aes(label = sprintf("%.2f", value), color = tissue),
             angle = 90, hjust = -0.2, vjust = 0.5, size = 2.2,
             fontface = "bold", show.legend = FALSE) +
   scale_fill_manual(values = c("Muscle" = "#EF9A9A", "Other\noffal" = "#BCAAA4",
@@ -1595,9 +1608,9 @@ p_tf <- ggplot(ga_tf, aes(x = tissue, y = TF)) +
   scale_color_manual(values = c("Muscle" = "#C62828", "Other\noffal" = "#5D4037",
                                 "Kidney" = "#E65100", "Liver" = "#2E7D32")) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.45)), limits = c(0, NA)) +
-  labs(title = "TRANSFER FACTORS",
-       subtitle = expression(paste("TF"["iAs/iAs"], " (d/kg)")),
-       caption = "Liver > Kidney > Offal ≈ Muscle\nFirst iAs-specific TFs") +
+  labs(title = "TISSUE iAs RESIDUES",
+       subtitle = "steady-state (µg/kg)",
+       caption = "Liver > Kidney > Offal ≈ Muscle") +
   theme_void() +
   theme(
     plot.background  = element_rect(fill = ga_tf_c, color = ga_border, linewidth = 0.6),
@@ -1645,13 +1658,13 @@ p_mc <- ga_canvas(ga_mc_c) +
   annotate("text", x = 5, y = 0.6, label = expression(paste("Target: CR = ", 10^-6)),
            size = 2.6, fontface = "bold", color = ga_red)
 
-# --- Panel 5: Proposed MRL ---
-p_mrl <- ga_canvas(ga_mrl_c) +
+# --- Panel 5: Proposed ML ---
+p_ml <- ga_canvas(ga_ml_c) +
   annotate("rect", xmin = 0.2, xmax = 9.8, ymin = 0.2, ymax = 9.8,
            fill = NA, color = ga_red, linewidth = 1.2) +
   annotate("text", x = 5, y = 9.0, label = "PROPOSED ML",
            size = 3.2, fontface = "bold", color = ga_red) +
-  annotate("text", x = 5, y = 7.0, label = sprintf("%.0f", ga_mrl),
+  annotate("text", x = 5, y = 7.0, label = sprintf("%.0f", ga_ml),
            size = 13, fontface = "bold", color = ga_red) +
   annotate("text", x = 5, y = 5.6, label = "µg/kg",
            size = 5, fontface = "bold", color = ga_red) +
@@ -1689,14 +1702,14 @@ p_ga_foot <- ggplot() +
            label = "Feed-to-tissue iAs transfer pathway -> Probabilistic cancer risk assessment -> Health-based feed ML",
            size = 3.2, fontface = "italic", color = ga_border) +
   annotate("text", x = 5, y = 0.8,
-           label = "The framework for deriving iAs-specific MLs in cattle feed",
+           label = "The framework for deriving MLs for iAs in cattle feed",
            size = 3, fontface = "bold", color = ga_accent)
 
 # --- assemble ---
 ga_middle <- arrangeGrob(
   ggplotGrob(p_feed), ggplotGrob(ga_arrow()), ggplotGrob(p_pbpk),
   ggplotGrob(ga_arrow()), ggplotGrob(p_tf), ggplotGrob(ga_arrow()),
-  ggplotGrob(p_mc), ggplotGrob(ga_arrow()), ggplotGrob(p_mrl),
+  ggplotGrob(p_mc), ggplotGrob(ga_arrow()), ggplotGrob(p_ml),
   ncol = 9, widths = c(3, 1, 3, 1, 3, 1, 3, 1, 3))
 
 ga_final <- arrangeGrob(ggplotGrob(p_ga_title), ga_middle, ggplotGrob(p_ga_foot),
@@ -1726,13 +1739,13 @@ for (tis in c("meat", "liver", "kidney")) {
               tis, tfi$mean, tfi$q025, tfi$q975))
 }
 
-cat("\nPART C - MRL\n")
+cat("\nPART C - ML\n")
 cat(sprintf("  Feed: C_iAs = %.0f ug/kg DM | FR = %.2f kg/day | LT = %d y | Adult only\n",
             C_feed_iAs_ug_kg, feed_intake_kg, LT))
 cat(sprintf("  General Public P5: %.4f ug/kg\n", p5_general))
 cat(sprintf("  Consumer Only P5 : %.4f ug/kg\n", p5_consumer))
-cat(sprintf("  FINAL MRL        : %.4f ug/kg  (protecting %s)\n",
-            final_MRL, protecting))
+cat(sprintf("  FINAL ML        : %.4f ug/kg  (protecting %s)\n",
+            final_ML, protecting))
 cat(sprintf("  Risk level       : %.0e (1 in 1,000,000)\n",
             config$acceptable_risk))
 
