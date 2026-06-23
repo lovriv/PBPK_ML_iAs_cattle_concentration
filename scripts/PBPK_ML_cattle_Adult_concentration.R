@@ -37,11 +37,12 @@ suppressPackageStartupMessages({
   library(MASS)
   library(truncnorm)
   library(scales)
+  library(conflicted)
 })
 
 # Resolve dplyr conflicts (MASS::select shadows dplyr::select)
-select <- dplyr::select
-filter <- dplyr::filter
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
 
 # --- Path resolution (portable) ----------------------------------------------
 # The script auto-locates the repository root assuming this script lives under
@@ -181,8 +182,10 @@ compute_derived <- function(p) {
   V_ab     <- BW * unname(p["FV_ab"])     * V_adj
   V_rest   <- BW * unname(p["FV_rest"])   * V_adj
 
+  Q_out <- Q_muscle + Q_kid + Q_hep + Q_gi + Q_rest
+
   c(Q_lung = Q_lung, Q_muscle = Q_muscle, Q_kid = Q_kid, Q_hep = Q_hep,
-    Q_gi   = Q_gi,   Q_rest   = Q_rest,   Q_liv = Q_liv,
+    Q_gi   = Q_gi,   Q_rest   = Q_rest,   Q_liv = Q_liv, Q_out = Q_out,
     V_lung = V_lung, V_muscle = V_muscle, V_kid = V_kid, V_liv = V_liv,
     V_gi   = V_gi,   V_vb     = V_vb,     V_ab  = V_ab,  V_rest = V_rest)
 }
@@ -350,7 +353,6 @@ pbpk_cattle_ode <- function(t, y, parms) {
     dAMT_DMA_vb   <- Q_muscle*CV_DMA_muscle   + Q_kid*CV_DMA_kid   +
       Q_liv*CV_DMA_liv   + Q_rest*CV_DMA_rest   - Q_lung*C_DMA_vb
 
-    Q_out <- Q_muscle + Q_kid + Q_hep + Q_gi + Q_rest
     dAMT_AsIII_ab <- Q_lung*Ca_AsIII_lung - Q_out*C_AsIII_ab +
       K_red_AsV_to_AsIII*AMT_AsV_ab - K_ox_AsIII_to_AsV*AMT_AsIII_ab
     dAMT_AsV_ab   <- Q_lung*Ca_AsV_lung   - Q_out*C_AsV_ab   -
