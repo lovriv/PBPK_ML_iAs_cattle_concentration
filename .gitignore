@@ -25,3 +25,11 @@ desktop.ini
 # Log files
 *.log
 run_log*.txt
+
+# RStudio default plot dump
+Rplots.pdf
+scripts/Rplots.pdf
+
+# Ad-hoc test output
+output_test/
+scripts/output_test/
