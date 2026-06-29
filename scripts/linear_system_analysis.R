@@ -48,13 +48,38 @@ for (i in seq_len(n)) {
   J[, i] <- (deriv(yp) - f0) / h
 }
 
-ev  <- eigen(J, only.values = TRUE)$values
+eg  <- eigen(J)                                         # eigenvalues AND eigenvectors
+ev  <- eg$values
 re  <- Re(ev); im <- Im(ev); dec <- re < -1e-7          # decaying (non-trivial) modes
 lam <- max(re[dec]); absl <- -lam                       # slowest = least-negative
 dom <- sort(re[dec], decreasing = TRUE)[2]              # dominant tissue mode
 cat(sprintf("lambda_slow   = %.4f /day  (terminal t1/2 = %.2f d)\n", lam * 24, log(2) / absl / 24))
 cat(sprintf("dominant mode = %.4f /day  (t1/2 = %.2f d -> tissue SS ~%.0f d)\n",
             dom * 24, log(2) / (-dom) / 24, log(1000) / (-dom) / 24))
+
+# --- eigenvector species composition (which As species carries each slow mode) -----
+# Over the 32 perfusion-compartment AMT states (4 species x 8 compartments), the
+# fraction of each eigenvector's squared magnitude carried by each arsenic species.
+# Substantiates the attribution in the text: the slowest (terminal) mode is DMA, and
+# its iAs (AsIII + AsV) content is ~0, so the slow DMA tail is decoupled from the
+# edible-tissue iAs, which therefore relaxes on the faster (dominant) mode.
+amt_idx    <- 15:46
+amt_names  <- state_names[amt_idx]
+species_of <- function(nm) ifelse(grepl("AsIII", nm), "AsIII",
+                           ifelse(grepl("AsV",   nm), "AsV",
+                           ifelse(grepl("MMA",   nm), "MMA", "DMA")))
+sp_amt <- species_of(amt_names)
+mode_species <- function(target_re) {
+  k <- which(abs(re - target_re) < 1e-9 & dec)[1]
+  w <- Mod(eg$vectors[amt_idx, k])^2; w <- w / sum(w)
+  s <- tapply(w, sp_amt, sum)[c("AsIII", "AsV", "MMA", "DMA")]
+  s[is.na(s)] <- 0; s
+}
+cs <- mode_species(lam); cd <- mode_species(dom)
+cat(sprintf("  slowest  mode species share: AsIII %.2f AsV %.2f MMA %.2f DMA %.2f  (iAs %.2f)\n",
+            cs["AsIII"], cs["AsV"], cs["MMA"], cs["DMA"], cs["AsIII"] + cs["AsV"]))
+cat(sprintf("  dominant mode species share: AsIII %.2f AsV %.2f MMA %.2f DMA %.2f  (iAs %.2f)\n",
+            cd["AsIII"], cd["AsV"], cd["MMA"], cd["DMA"], cd["AsIII"] + cd["AsV"]))
 
 # --- figure ------------------------------------------------------------------
 idx   <- 15:46                                          # AMT_*_compartment (4 sp x 8 comp)
