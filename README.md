@@ -53,13 +53,15 @@ cattle value) is tabulated in `data/parameter_conversion.csv`.
 
 - R >= 4.2
 - R packages: `deSolve`, `tidyverse`, `parallel`, `gridExtra`, `readxl`,
-  `MASS`, `truncnorm`, `scales`
+  `MASS`, `truncnorm`, `scales`, `conflicted`; plus `sensitivity` for the
+  sensitivity-analysis script.
 
 Install:
 
 ```r
 install.packages(c("deSolve", "tidyverse", "parallel", "gridExtra",
-                   "readxl", "MASS", "truncnorm", "scales"))
+                   "readxl", "MASS", "truncnorm", "scales", "conflicted",
+                   "sensitivity"))
 ```
 
 ---
@@ -90,6 +92,25 @@ It reports, per tissue, the time to reach 90/95/99/99.9% of the plateau and a
 rate-based time (when the relative rate of change falls below 1.0 / 0.5 /
 0.1 %/day). A custom path to `A_pbpk_deterministic.csv` can be passed as an
 argument.
+
+### Supplementary analyses
+
+Two further scripts reuse the model definitions from the main pipeline (they
+re-evaluate only the definition prefix, so the full population run is **not**
+repeated) and write their outputs to `output_concentration/`:
+
+```bash
+# Sensitivity analysis: local one-at-a-time (normalized SC) + global Morris
+# screening of the 48 kinetic/partition parameters. Requires the `sensitivity`
+# package. Outputs: SA_sensitivity_coefficients.csv, SA_sensitivity.{tiff,png}
+Rscript scripts/sensitivity_analysis.R
+
+# Linear-system / eigenvalue analysis (Appendix A.1): finite-difference Jacobian,
+# eigenvalue spectrum (relaxation rate constants), and the eigenvector species
+# composition of the slow modes.
+# Outputs: S1_eigen_summary.csv, S1_linear_system.{tiff,png}
+Rscript scripts/linear_system_analysis.R
+```
 
 ---
 

@@ -81,6 +81,20 @@ cat(sprintf("  slowest  mode species share: AsIII %.2f AsV %.2f MMA %.2f DMA %.2
 cat(sprintf("  dominant mode species share: AsIII %.2f AsV %.2f MMA %.2f DMA %.2f  (iAs %.2f)\n",
             cd["AsIII"], cd["AsV"], cd["MMA"], cd["DMA"], cd["AsIII"] + cd["AsV"]))
 
+# --- save eigenvalue / half-life / species-composition summary (Appendix A.1) ---
+eig_summary <- data.frame(
+  mode               = c("slowest_terminal", "dominant_tissue"),
+  eigenvalue_per_day = c(lam * 24, dom * 24),
+  half_life_day      = c(log(2) / (-lam) / 24, log(2) / (-dom) / 24),
+  AsIII              = c(cs[["AsIII"]], cd[["AsIII"]]),
+  AsV                = c(cs[["AsV"]],   cd[["AsV"]]),
+  MMA                = c(cs[["MMA"]],   cd[["MMA"]]),
+  DMA                = c(cs[["DMA"]],   cd[["DMA"]]),
+  iAs_AsIII_AsV      = c(cs[["AsIII"]] + cs[["AsV"]], cd[["AsIII"]] + cd[["AsV"]])
+)
+write.csv(eig_summary, out_path("S1_eigen_summary.csv"), row.names = FALSE)
+cat("Saved S1_eigen_summary.csv\n")
+
 # --- figure ------------------------------------------------------------------
 idx   <- 15:46                                          # AMT_*_compartment (4 sp x 8 comp)
 As    <- J[idx, idx]; M <- sign(As) * log10(1 + abs(As))
