@@ -1,17 +1,24 @@
 # =============================================================================
-# PBPK_ML_cattle_Adult.R  -- INTEGRATED PIPELINE
+# PBPK_ML_cattle_Adult_concentration.R  -- INTEGRATED PIPELINE (concentration-based)
 #
-# Combines two stages in a single self-contained R script:
+# Combines three stages in a single self-contained R script. The risk
+# assessment is driven directly by the population distribution of steady-state
+# tissue iAs concentrations predicted by the PBPK model (concentration-based
+# variant; transfer factors are reported for audit only and are NOT used in
+# the ML back-calculation).
 #
 #   PART A: PBPK model for iAs in beef cattle (Hung 2021 control dose)
 #           - Deterministic ODE + 10000-run population Monte Carlo
-#           - Output: Transfer Factors (TF) for muscle/liver/kidney
+#           - Output: per-animal steady-state iAs (AsIII + AsV) concentrations
+#             in muscle, liver, kidney, and other offal
 #
-#   PART B: Build TF_cattle distribution (mean + 95% CI) from PBPK output
+#   PART B: Build the per-animal steady-state tissue-concentration table used by
+#           Part C (and a TF_cattle audit summary) from the PBPK output
 #
 #   PART C: ML risk assessment (Adult-only, lifetime = 70 years)
-#           - 10000-trial Monte Carlo cancer risk model
-#           - Output: Maximum Residue Limit (ML) of iAs in cattle feed
+#           - 10000-trial Monte Carlo cancer risk model using the steady-state
+#             tissue concentrations
+#           - Output: health-based Maximum Limit (ML) of iAs in cattle feed
 #
 # Adult-only design (no age stratification):
 #   ED_age = c(Adult = 70)
@@ -19,7 +26,7 @@
 #   Data is pre-filtered to agegroup = "Adult" so no ED warnings appear.
 #
 # All outputs land in:
-#   <this-script-dir>/output/
+#   <repo-root>/output_concentration/
 # =============================================================================
 
 
@@ -1633,7 +1640,9 @@ p_pbpk <- ga_canvas(ga_pbpk_c) +
            size = 2.5, color = ga_text) +
   annotate("text", x = 5, y = 1.5, label = "Michaelis-Menten methylation",
            size = 2.5, color = ga_text) +
-  annotate("text", x = 5, y = 0.8, label = "Steady state: ~200 hours",
+  annotate("text", x = 5, y = 0.8,
+           label = sprintf("Steady state: ~%.0f hours (~%.0f days)",
+                           unname(t_ss), unname(t_ss) / 24),
            size = 2.5, color = ga_text)
 
 # --- Panel 3: Steady-state tissue iAs concentrations (live values) ---
