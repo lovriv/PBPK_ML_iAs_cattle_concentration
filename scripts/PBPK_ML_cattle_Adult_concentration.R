@@ -1442,7 +1442,7 @@ pC1 <- ggplot(plot_data, aes(x = ML_unified, fill = Population)) +
   geom_vline(xintercept = final_ML, color = "red",
              linetype = "dashed", linewidth = 0.8) +
   annotate("text", x = final_ML * 1.2, y = Inf,
-           label = paste("Proposed ML:", round(final_ML, 0), "ug/kg"),
+           label = paste("Proposed ML:", round(final_ML, 1), "ug/kg"),
            vjust = 1.5, hjust = 0, color = "red", size = 4, fontface = "bold") +
   labs(x = "Unified ML (ug/kg, log-scale)", y = "Frequency", fill = NULL) +
   theme_classic(base_size = 12) +
@@ -1584,9 +1584,11 @@ ga_n_mc      <- format(config$n_sim, big.mark = ",")
 ga_feed_rate <- unname(parms["feed_intake_kg"])
 ga_ml      <- round(final_ML, 1)
 # Current international tAs feed MLs span 2,000-30,000 ug/kg
-# (CFIA 2015; EU 2019; FSANZ 2001; U.S. NRC 2005)
-ga_fold_lo  <- round(2000  / ga_ml)
-ga_fold_hi  <- round(30000 / ga_ml)
+# (CFIA 2015; EU 2019; FSANZ 2001; U.S. NRC 2005). Fold range is computed from
+# the UNROUNDED ML and reported to 3 significant figures so the figure matches
+# the manuscript abstract ("1,100- to 16,500-fold").
+ga_fold_lo  <- signif(2000  / final_ML, 3)
+ga_fold_hi  <- signif(30000 / final_ML, 3)
 
 # --- Panel 1: Feed input ---
 p_feed <- ga_canvas(ga_feed_c) +
@@ -1641,7 +1643,7 @@ p_pbpk <- ga_canvas(ga_pbpk_c) +
   annotate("text", x = 5, y = 1.5, label = "Michaelis-Menten methylation",
            size = 2.5, color = ga_text) +
   annotate("text", x = 5, y = 0.8,
-           label = sprintf("Steady state: ~%.0f hours (~%.0f days)",
+           label = sprintf("Steady state: ~%.0f h (~%.0f d)",
                            unname(t_ss), unname(t_ss) / 24),
            size = 2.5, color = ga_text)
 
@@ -1719,7 +1721,7 @@ p_ml <- ga_canvas(ga_ml_c) +
            fill = NA, color = ga_red, linewidth = 1.2) +
   annotate("text", x = 5, y = 9.0, label = "PROPOSED ML",
            size = 3.2, fontface = "bold", color = ga_red) +
-  annotate("text", x = 5, y = 7.0, label = sprintf("%.0f", ga_ml),
+  annotate("text", x = 5, y = 7.0, label = sprintf("%.1f", ga_ml),
            size = 13, fontface = "bold", color = ga_red) +
   annotate("text", x = 5, y = 5.6, label = "µg/kg",
            size = 5, fontface = "bold", color = ga_red) +
