@@ -5,16 +5,16 @@ Ka_MMA,GI absorption,0.42,1/hr,BW^-0.25,0.579431,0.243361,1/hr,El-Masri & Kenyon
 Ka_DMA,GI absorption,0.42,1/hr,BW^-0.25,0.579431,0.243361,1/hr,El-Masri & Kenyon (2008)
 K_red_AsV_to_AsIII,Reduction,1.37,1/hr,BW^-0.25,0.579431,0.793821,1/hr,Mann et al. (1996b)
 K_ox_AsIII_to_AsV,Oxidation,1.83,1/hr,BW^-0.25,0.579431,1.060359,1/hr,Mann et al. (1996b)
-Vmax_AsIII_to_MMA_liv,Hepatic methylation,31.2,umol/hr,BW^0.75,5.140379,160,umol/hr,Yu (1999a,1999b)
-Vmax_AsIII_to_DMA_liv,Hepatic methylation,62.4,umol/hr,BW^0.75,5.140379,321,umol/hr,Yu (1999a,1999b)
-Vmax_MMA_to_DMA_liv,Hepatic methylation,44.4,umol/hr,BW^0.75,5.140379,228,umol/hr,Yu (1999a,1999b)
-Vmax_AsIII_to_MMA_kid,Renal methylation,20.8,umol/hr,BW^0.75,5.140379,107,umol/hr,Yu (1999a,1999b)
-Vmax_AsIII_to_DMA_kid,Renal methylation,27.8,umol/hr,BW^0.75,5.140379,143,umol/hr,Yu (1999a,1999b)
-Vmax_MMA_to_DMA_kid,Renal methylation,13.87,umol/hr,BW^0.75,5.140379,71.3,umol/hr,Yu (1999a,1999b)
+Vmax_AsIII_to_MMA_liv,Hepatic methylation,31.2,umol/hr,BW^0.75,5.140379,160,umol/hr,"Yu (1999a,1999b)"
+Vmax_AsIII_to_DMA_liv,Hepatic methylation,62.4,umol/hr,BW^0.75,5.140379,321,umol/hr,"Yu (1999a,1999b)"
+Vmax_MMA_to_DMA_liv,Hepatic methylation,44.4,umol/hr,BW^0.75,5.140379,228,umol/hr,"Yu (1999a,1999b)"
+Vmax_AsIII_to_MMA_kid,Renal methylation,20.8,umol/hr,BW^0.75,5.140379,107,umol/hr,"Yu (1999a,1999b)"
+Vmax_AsIII_to_DMA_kid,Renal methylation,27.8,umol/hr,BW^0.75,5.140379,143,umol/hr,"Yu (1999a,1999b)"
+Vmax_MMA_to_DMA_kid,Renal methylation,13.87,umol/hr,BW^0.75,5.140379,71.3,umol/hr,"Yu (1999a,1999b)"
 Km_all_steps,Methylation affinity,100,umol/L,BW^0 (invariant),1.0,100,umol/L,El-Masri & Kenyon (2008)
 k_urine_AsIII,Urinary excretion,4.2,1/hr,BW^-0.25,0.579431,2.433610,1/hr,El-Masri & Kenyon (2008)
 k_urine_AsV,Urinary excretion,4.2,1/hr,BW^-0.25,0.579431,2.433610,1/hr,El-Masri & Kenyon (2008)
 k_urine_MMA,Urinary excretion,18,1/hr,BW^-0.25,0.579431,10.429758,1/hr,El-Masri & Kenyon (2008)
 k_urine_DMA,Urinary excretion,7.8,1/hr,BW^-0.25,0.579431,4.519562,1/hr,El-Masri & Kenyon (2008)
-eF_AsV,Faecal excretion,0.00125,1/hr,BW^-0.25,0.579431,0.000724289,1/hr,Yu (1999a,1999b)
-eB_AsV,Biliary excretion,0.0179,1/hr,BW^-0.25,0.579431,0.010371815,1/hr,Yu (1999a,1999b)
+eF_AsV,Faecal excretion,0.00125,1/hr,BW^-0.25,0.579431,0.000724289,1/hr,"Yu (1999a,1999b)"
+eB_AsV,Biliary excretion,0.0179,1/hr,BW^-0.25,0.579431,0.010371815,1/hr,"Yu (1999a,1999b)"
