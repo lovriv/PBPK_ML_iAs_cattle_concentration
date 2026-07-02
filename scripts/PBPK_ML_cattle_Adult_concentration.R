@@ -4,8 +4,8 @@
 # Combines three stages in a single self-contained R script. The risk
 # assessment is driven directly by the population distribution of steady-state
 # tissue iAs concentrations predicted by the PBPK model (concentration-based
-# variant; transfer factors are reported for audit only and are NOT used in
-# the ML back-calculation).
+# variant; biotransfer factors (BTF, d/kg) are reported for audit only and are
+# NOT used in the ML back-calculation).
 #
 #   PART A: PBPK model for iAs in beef cattle (Hung 2021 control dose)
 #           - Deterministic ODE + 10000-run population Monte Carlo
@@ -13,7 +13,7 @@
 #             in muscle, liver, kidney, and other offal
 #
 #   PART B: Build the per-animal steady-state tissue-concentration table used by
-#           Part C (and a TF_cattle audit summary) from the PBPK output
+#           Part C (and a BTF_cattle audit summary) from the PBPK output
 #
 #   PART C: ML risk assessment (Adult-only, lifetime = 70 years)
 #           - 10000-trial Monte Carlo cancer risk model using the steady-state
@@ -80,7 +80,7 @@ EXCEL_PATH <- file.path(REPO_ROOT, "data", "food_intake_iAs.xlsx")
 dir.create(OUT_DIR, showWarnings = FALSE, recursive = TRUE)
 out_path <- function(filename) file.path(OUT_DIR, filename)
 
-cat("INTEGRATED PIPELINE: PBPK -> TF -> ML  (Adult only)\n")
+cat("INTEGRATED PIPELINE: PBPK -> BTF -> ML  (Adult only)\n")
 cat("=====================================================\n")
 cat("Output directory:", OUT_DIR, "\n\n")
 
@@ -149,7 +149,7 @@ parms <- c(
   # detected in section A5b; the value here is only an initial placeholder)
   TSTOP = 200, tlen = 24, FREQ = 24,
 
-  # Feed exposure (BTF/TF normalization)
+  # Feed exposure (TC/BTF normalization)
   feed_intake_kg   = 9.420,   # kg DM/day
   C_feed_iAs_ug_kg = 103.3      # AsIII (14.3) + AsV (89), Hung 2021 control
 )
@@ -624,7 +624,7 @@ cat(sprintf("    Done: %d/%d runs in %.1f s\n", n_ok, n_runs_pbpk, elapsed))
 pop_df <- do.call(rbind, Filter(Negate(is.null), pop_raw))
 
 
-## A10. Convert to ug/kg and compute BTF/TF -----------------------------------
+## A10. Convert to ug/kg and compute TC (dimensionless) / BTF (d/kg) ----------
 
 MW_As            <- unname(parms["MW"])
 feed_intake_kg   <- unname(parms["feed_intake_kg"])
@@ -636,12 +636,14 @@ pop_df_conv <- pop_df |>
     C_iAs_muscle_ug = C_iAs_muscle * MW_As,
     C_iAs_liv_ug    = C_iAs_liv    * MW_As,
     C_iAs_kid_ug    = C_iAs_kid    * MW_As,
-    BTF_muscle      = C_iAs_muscle_ug / C_feed_iAs_ug_kg,
-    BTF_liv         = C_iAs_liv_ug    / C_feed_iAs_ug_kg,
-    BTF_kid         = C_iAs_kid_ug    / C_feed_iAs_ug_kg,
-    TF_muscle       = BTF_muscle / FR_feed,
-    TF_liv          = BTF_liv    / FR_feed,
-    TF_kid          = BTF_kid    / FR_feed
+    # TC = dimensionless steady-state transfer coefficient (C_tissue / C_feed);
+    # BTF = biotransfer factor (d/kg) = TC / feed intake rate (manuscript Table A.6)
+    TC_muscle       = C_iAs_muscle_ug / C_feed_iAs_ug_kg,
+    TC_liv          = C_iAs_liv_ug    / C_feed_iAs_ug_kg,
+    TC_kid          = C_iAs_kid_ug    / C_feed_iAs_ug_kg,
+    BTF_muscle      = TC_muscle / FR_feed,
+    BTF_liv         = TC_liv    / FR_feed,
+    BTF_kid         = TC_kid    / FR_feed
   )
 
 
@@ -878,54 +880,54 @@ write.csv(out_df, out_path("A_pbpk_deterministic.csv"), row.names = FALSE)
 pop_export <- pop_df_conv |>
   select(run, time, Day, C_iAs_muscle, C_iAs_liv, C_iAs_kid,
          C_iAs_muscle_ug, C_iAs_liv_ug, C_iAs_kid_ug,
-         BTF_muscle, BTF_liv, BTF_kid, TF_muscle, TF_liv, TF_kid)
+         TC_muscle, TC_liv, TC_kid, BTF_muscle, BTF_liv, BTF_kid)
 write.csv(pop_export, out_path(sprintf("A_pbpk_pop_%druns.csv", n_runs_pbpk)),
           row.names = FALSE)
 
 
 # =============================================================================
 # =============================================================================
-#               PART B: BUILD TF_cattle FROM PBPK OUTPUT (in memory)
+#               PART B: BUILD BTF_cattle FROM PBPK OUTPUT (in memory)
 # =============================================================================
 # =============================================================================
 
-cat("\n[PART B] TF EXTRACTION\n")
+cat("\n[PART B] BTF EXTRACTION\n")
 cat("----------------------\n")
 
 ss_pbpk <- pop_df_conv |> filter(time == max(time))
 
-TF_cattle <- list(
+BTF_cattle <- list(
   meat = list(
-    mean = mean(ss_pbpk$TF_muscle),
-    q025 = quantile(ss_pbpk$TF_muscle, 0.025, names = FALSE),
-    q500 = quantile(ss_pbpk$TF_muscle, 0.500, names = FALSE),
-    q975 = quantile(ss_pbpk$TF_muscle, 0.975, names = FALSE)
+    mean = mean(ss_pbpk$BTF_muscle),
+    q025 = quantile(ss_pbpk$BTF_muscle, 0.025, names = FALSE),
+    q500 = quantile(ss_pbpk$BTF_muscle, 0.500, names = FALSE),
+    q975 = quantile(ss_pbpk$BTF_muscle, 0.975, names = FALSE)
   ),
   liver = list(
-    mean = mean(ss_pbpk$TF_liv),
-    q025 = quantile(ss_pbpk$TF_liv, 0.025, names = FALSE),
-    q500 = quantile(ss_pbpk$TF_liv, 0.500, names = FALSE),
-    q975 = quantile(ss_pbpk$TF_liv, 0.975, names = FALSE)
+    mean = mean(ss_pbpk$BTF_liv),
+    q025 = quantile(ss_pbpk$BTF_liv, 0.025, names = FALSE),
+    q500 = quantile(ss_pbpk$BTF_liv, 0.500, names = FALSE),
+    q975 = quantile(ss_pbpk$BTF_liv, 0.975, names = FALSE)
   ),
   kidney = list(
-    mean = mean(ss_pbpk$TF_kid),
-    q025 = quantile(ss_pbpk$TF_kid, 0.025, names = FALSE),
-    q500 = quantile(ss_pbpk$TF_kid, 0.500, names = FALSE),
-    q975 = quantile(ss_pbpk$TF_kid, 0.975, names = FALSE)
+    mean = mean(ss_pbpk$BTF_kid),
+    q025 = quantile(ss_pbpk$BTF_kid, 0.025, names = FALSE),
+    q500 = quantile(ss_pbpk$BTF_kid, 0.500, names = FALSE),
+    q975 = quantile(ss_pbpk$BTF_kid, 0.975, names = FALSE)
   )
 )
 # 'others' = remaining tissues compartment of PBPK; shares partition
-# coefficients with muscle -> TF = TF_meat
-TF_cattle$others <- TF_cattle$meat
+# coefficients with muscle -> BTF = BTF_meat
+BTF_cattle$others <- BTF_cattle$meat
 
-cat("TF (d/kg) from PBPK population output:\n")
+cat("BTF (d/kg) from PBPK population output:\n")
 for (tis in c("meat", "liver", "kidney", "others")) {
-  tfi <- TF_cattle[[tis]]
+  bfi <- BTF_cattle[[tis]]
   cat(sprintf("  %-8s: mean=%.6f, 95%% CI=[%.6f, %.6f]\n",
-              tis, tfi$mean, tfi$q025, tfi$q975))
+              tis, bfi$mean, bfi$q025, bfi$q975))
 }
 
-## B2. Per-animal steady-state concentration & ratio table (concentration-based, no-TF)
+## B2. Per-animal steady-state concentration & ratio table (concentration-based; uses TC ratio, not BTF)
 # ss_pbpk has one row per virtual animal at steady state. 'others' shares the
 # muscle partition coefficients, so it takes the muscle concentration.
 # Keeping whole per-animal rows preserves cross-tissue and BW-FR_feed correlations.
@@ -936,23 +938,23 @@ conc_pop <- data.frame(
   kidney = ss_pbpk$C_iAs_kid_ug,
   others = ss_pbpk$C_iAs_muscle_ug
 )
-ratio_pop <- conc_pop / C_feed_ref               # dimensionless tissue:feed ratio
+ratio_pop <- conc_pop / C_feed_ref               # dimensionless tissue:feed ratio = transfer coefficient TC
 n_animals <- nrow(ratio_pop)
 cat(sprintf("Concentration-based inputs: %d per-animal vectors; C_feed_ref = %.1f ug/kg\n",
             n_animals, C_feed_ref))
 
-# Also persist a small TF_summary.csv for audit
-tf_summary <- data.frame(
+# Also persist a small BTF_summary.csv for audit
+btf_summary <- data.frame(
   tissue = c("meat", "liver", "kidney"),
-  mean   = c(TF_cattle$meat$mean,  TF_cattle$liver$mean,  TF_cattle$kidney$mean),
-  q025   = c(TF_cattle$meat$q025,  TF_cattle$liver$q025,  TF_cattle$kidney$q025),
-  q500   = c(TF_cattle$meat$q500,  TF_cattle$liver$q500,  TF_cattle$kidney$q500),
-  q975   = c(TF_cattle$meat$q975,  TF_cattle$liver$q975,  TF_cattle$kidney$q975),
+  mean   = c(BTF_cattle$meat$mean,  BTF_cattle$liver$mean,  BTF_cattle$kidney$mean),
+  q025   = c(BTF_cattle$meat$q025,  BTF_cattle$liver$q025,  BTF_cattle$kidney$q025),
+  q500   = c(BTF_cattle$meat$q500,  BTF_cattle$liver$q500,  BTF_cattle$kidney$q500),
+  q975   = c(BTF_cattle$meat$q975,  BTF_cattle$liver$q975,  BTF_cattle$kidney$q975),
   n_runs = n_runs_pbpk,
   units  = "d/kg",
   source = sprintf("Integrated pipeline run %s", format(Sys.time(), "%Y-%m-%d %H:%M"))
 )
-write.csv(tf_summary, out_path("B_TF_summary.csv"), row.names = FALSE)
+write.csv(btf_summary, out_path("B_BTF_summary.csv"), row.names = FALSE)
 
 
 # =============================================================================
@@ -1163,7 +1165,7 @@ run_simulation <- function(population_type, n_trials) {
         fi_recorded    <- fi_val   # capture for validation (Adult-only)
       }
 
-      # Diagnostic record, one row per trial x tissue. TF and BW are always
+      # Diagnostic record, one row per trial x tissue. The tissue ratio and BW are always
       # sampled; FI is NA for tissues with no consumption data (liver and
       # kidney have zero reported cattle intake in the Taiwan dataset).
       rec_i <- rec_i + 1L
@@ -1287,10 +1289,10 @@ sensitivity_results <- data.frame(
 #   (1) Pearson r(BW, FI) per tissue vs the target correlation (0.50)
 #   (2) Distributional integrity: a one-sample Kolmogorov-Smirnov test
 #       comparing each Monte Carlo-sampled input to the distribution it was
-#       DRAWN from (its intended target) - truncated-normal for TF and feeding
-#       rate, uniform for bioavailability. This confirms the sampler reproduced
-#       the intended distributions, rather than testing against plain normality
-#       (TF is a truncated normal by construction).
+#       DRAWN from (its intended target): the PBPK population resample for the
+#       tissue:feed ratios, a truncated normal for feeding rate, and a uniform
+#       for bioavailability. This confirms the sampler reproduced the intended
+#       distributions.
 # Performed on the general-public run.
 
 cat("C6. Post-simulation validation (general public)...\n")
@@ -1508,10 +1510,10 @@ write.csv(combined_summary, out_path("C_summary_statistics.csv"),     row.names 
 regulatory_summary <- data.frame(
   Parameter = c("General_Public_P5", "Consumer_Only_P5", "Final_ML",
                 "Acceptable_Risk", "Lifetime_LT", "Simulation_Trials",
-                "TF_meat_mean", "TF_liver_mean", "TF_kidney_mean", "PBPK_n_runs"),
+                "BTF_meat_mean", "BTF_liver_mean", "BTF_kidney_mean", "PBPK_n_runs"),
   Value     = c(round(p5_general, 6), round(p5_consumer, 6), round(final_ML, 6),
                 config$acceptable_risk, LT, config$n_sim,
-                TF_cattle$meat$mean, TF_cattle$liver$mean, TF_cattle$kidney$mean,
+                BTF_cattle$meat$mean, BTF_cattle$liver$mean, BTF_cattle$kidney$mean,
                 n_runs_pbpk),
   Units     = c("ug/kg", "ug/kg", "ug/kg", "unitless", "years", "trials",
                 "d/kg", "d/kg", "d/kg", "runs")
@@ -1546,7 +1548,7 @@ write.csv(table4, out_path("C_Table4_ML_by_endpoint.csv"), row.names = FALSE)
 ## C14. Graphical abstract ----------------------------------------------------
 # Five-panel summary banner: Feed -> Population PBPK -> Transfer Factors ->
 # Monte Carlo -> Proposed ML. All numbers are pulled live from the pipeline
-# (n_runs_pbpk, TF_cattle, config$n_sim, final_ML) so the figure always
+# (n_runs_pbpk, BTF_cattle, config$n_sim, final_ML) so the figure always
 # matches the canonical run.
 
 cat("C9. Building graphical abstract...\n")
@@ -1789,11 +1791,11 @@ cat(sprintf("  Dose (Hung 2021)    : AsIII %.2f, AsV %.2f, MMA %.2f, DMA %.2f ug
 cat(sprintf("  Population runs     : %d (steady state at t = %d h)\n",
             n_runs_pbpk, unname(parms["TSTOP"])))
 
-cat("\nPART B - TF (d/kg)\n")
+cat("\nPART B - BTF (d/kg)\n")
 for (tis in c("meat", "liver", "kidney")) {
-  tfi <- TF_cattle[[tis]]
-  cat(sprintf("  TF_%-7s: mean = %.6f | 95%% CI [%.6f, %.6f]\n",
-              tis, tfi$mean, tfi$q025, tfi$q975))
+  bfi <- BTF_cattle[[tis]]
+  cat(sprintf("  BTF_%-6s: mean = %.6f | 95%% CI [%.6f, %.6f]\n",
+              tis, bfi$mean, bfi$q025, bfi$q975))
 }
 
 cat("\nPART C - ML\n")
