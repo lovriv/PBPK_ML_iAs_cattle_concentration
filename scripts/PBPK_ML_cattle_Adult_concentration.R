@@ -534,6 +534,8 @@ pop_dist <- list(
 # All reported numbers and figures derive from this exact configuration:
 #   PBPK population = 10000 | PBPK seed = 4729
 #   ML Monte Carlo = 10000 | ML  seed = 123  (see config below)
+# Additional seeds that also affect results/figures:
+#   BW<->FR_feed correlation seed = 4730 (below) | figure-jitter seed = 42
 n_runs_pbpk <- 10000L
 cat("    n_runs =", n_runs_pbpk, "(locked canonical)\n")
 
@@ -972,8 +974,7 @@ config <- list(
   confidence_level   = 0.95,
   target_correlation = 0.5,
   bioavail_min       = 0.70,
-  bioavail_max       = 0.90,
-  use_tf_uncertainty = TRUE
+  bioavail_max       = 0.90
 )
 set.seed(config$seed)
 
@@ -1039,18 +1040,17 @@ feeding_rate_params <- list(mean = 9.42, sd = 0.94)   # Waegeneers et al. 2011
 csf_skin    <- csf_data$csf[csf_data$cancer == "skin"]
 csf_lung    <- csf_data$csf[csf_data$cancer == "lung"]
 csf_bladder <- csf_data$csf[csf_data$cancer == "bladder"]
+stopifnot(
+  "CSF 'skin' label missing/duplicated in csf sheet"    = length(csf_skin)    == 1,
+  "CSF 'lung' label missing/duplicated in csf sheet"    = length(csf_lung)    == 1,
+  "CSF 'bladder' label missing/duplicated in csf sheet" = length(csf_bladder) == 1
+)
 
 cat("    CSF [(ug/kg-day)^-1]: skin=", csf_skin,
     "lung=", csf_lung, "bladder=", csf_bladder, "\n")
 
 
 ## C5. Sampling helpers --------------------------------------------------------
-
-sample_tf <- function(tissue_name) {
-  tf <- TF_cattle[[tissue_name]]
-  est_sd <- (tf$q975 - tf$q025) / 3.92   # 95% CI width = 3.92 * SD
-  rtruncnorm(1, a = tf$q025, b = tf$q975, mean = tf$mean, sd = est_sd)
-}
 
 sample_bw <- function(bw_mean, bw_sd, bw_min, bw_max) {
   if (bw_sd <= 0) return(bw_mean)

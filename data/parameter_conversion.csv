@@ -10,7 +10,7 @@ Vmax_AsIII_to_DMA_liv,Hepatic methylation,62.4,umol/hr,BW^0.75,5.140379,321,umol
 Vmax_MMA_to_DMA_liv,Hepatic methylation,44.4,umol/hr,BW^0.75,5.140379,228,umol/hr,Yu (1999a,1999b)
 Vmax_AsIII_to_MMA_kid,Renal methylation,20.8,umol/hr,BW^0.75,5.140379,107,umol/hr,Yu (1999a,1999b)
 Vmax_AsIII_to_DMA_kid,Renal methylation,27.8,umol/hr,BW^0.75,5.140379,143,umol/hr,Yu (1999a,1999b)
-Vmax_MMA_to_DMA_kid,Renal methylation,13.9,umol/hr,BW^0.75,5.140379,71.3,umol/hr,Yu (1999a,1999b)
+Vmax_MMA_to_DMA_kid,Renal methylation,13.87,umol/hr,BW^0.75,5.140379,71.3,umol/hr,Yu (1999a,1999b)
 Km_all_steps,Methylation affinity,100,umol/L,BW^0 (invariant),1.0,100,umol/L,El-Masri & Kenyon (2008)
 k_urine_AsIII,Urinary excretion,4.2,1/hr,BW^-0.25,0.579431,2.433610,1/hr,El-Masri & Kenyon (2008)
 k_urine_AsV,Urinary excretion,4.2,1/hr,BW^-0.25,0.579431,2.433610,1/hr,El-Masri & Kenyon (2008)
